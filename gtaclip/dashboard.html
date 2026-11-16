@@ -154,42 +154,140 @@ body.drawer #drawer { transform: none; } body.drawer #scrim { opacity: 1; pointe
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translate(-50%, 20px); background: #2a2236; border: 1px solid var(--line2); padding: 11px 16px; z-index: 99; border-radius: 12px; opacity: 0; transition: all .25s; pointer-events: none; font-weight: 700; max-width: calc(100vw - 32px); box-shadow: 0 10px 40px #0009; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+
+/* ================= v2 look: Vice City night, glass, neon, smooth ================= */
+:root { --panel: #16111f; --panel2: #1c1527; --glass: #1a1324b3; --glow: 0 0 0 1px #ff3ea533, 0 12px 40px -12px #ff3ea566; --ease: cubic-bezier(.2,.8,.2,1); }
+html { scroll-behavior: smooth; }
+body { background: radial-gradient(120% 80% at 50% -10%, #241034 0%, var(--bg) 55%) fixed, var(--bg); }
+body::before { height: 100vh; opacity: .9; background:
+  radial-gradient(40% 50% at 12% 8%, #ff3ea52e, transparent 70%),
+  radial-gradient(35% 45% at 88% 4%, #ff8a3d26, transparent 70%),
+  radial-gradient(30% 40% at 60% 30%, #8a5cff1c, transparent 70%);
+  animation: aurora 22s ease-in-out infinite alternate; will-change: transform; }
+body::after { content: ""; position: fixed; left: -50%; right: -50%; bottom: -10vh; height: 46vh; z-index: -1; pointer-events: none; opacity: .22;
+  background: linear-gradient(transparent 0 0) , repeating-linear-gradient(90deg, #ff3ea555 0 1px, transparent 1px 80px), repeating-linear-gradient(0deg, #ff3ea555 0 1px, transparent 1px 80px);
+  transform: perspective(420px) rotateX(62deg); transform-origin: 50% 100%;
+  -webkit-mask: linear-gradient(transparent, #000 70%); mask: linear-gradient(transparent, #000 70%);
+  animation: grid 6s linear infinite; }
+@keyframes aurora { 0% { transform: translate3d(0,0,0) scale(1); } 100% { transform: translate3d(-3%,2%,0) scale(1.08); } }
+@keyframes grid { to { background-position: 0 0, 0 80px, 0 80px; } }
+
+.ic { width: 1.15em; height: 1.15em; flex: none; display: inline-block; vertical-align: -.2em; }
+button, .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; position: relative; overflow: hidden; text-decoration: none;
+  transition: transform .18s var(--ease), filter .18s, box-shadow .25s var(--ease), background-color .2s; }
+.btn { font: 800 13px Montserrat, sans-serif; border-radius: 10px; padding: 9px 13px; color: #fff; background: var(--grad); }
+button:not(.ghost):not(.danger):not(.fchip):not(.who):not(.del):not(:disabled), .btn:not(.ghost) { box-shadow: 0 6px 22px -8px #ff3ea5aa; }
+button:not(.ghost):not(.danger):not(.fchip):not(.who):not(.del):not(:disabled)::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, #ffffff40 50%, transparent 65%); transform: translateX(-120%); transition: transform .6s var(--ease); }
+button:not(:disabled):hover::after { transform: translateX(120%); }
+button:not(:disabled):hover, .btn:hover { transform: translateY(-1px); }
+button.ghost, .btn.ghost { background: #ffffff0d; border: 1px solid #ffffff14; color: var(--text); }
+button.ghost:hover, .btn.ghost:hover { background: #ffffff17; border-color: #ffffff26; }
+.icon-only { padding: 9px 10px; } .icon-only .ic { width: 18px; height: 18px; }
+button.danger { background: #ff2d5517; border: 1px solid #ff2d5533; color: #ff8aa0; } button.danger:hover { background: #ff2d552b; }
+a.small { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; } a.small:hover { text-decoration: underline; }
+
+header { background: linear-gradient(180deg, #0d0a14e6, #0d0a14b3); border-bottom: 0; box-shadow: 0 1px 0 #ffffff0a; }
+header::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--pink), var(--orange), transparent); background-size: 200% 100%; animation: sweep 6s linear infinite; opacity: .7; }
+@keyframes sweep { to { background-position: -200% 0; } }
+.mark { width: 44px; height: 44px; transition: transform .4s var(--ease); } .logo:hover .mark { transform: rotate(-6deg) scale(1.06); }
+.chip { background: var(--glass); border-color: #ffffff12; backdrop-filter: blur(10px); transition: border-color .2s; }
+.chip:hover { border-color: #ffffff26; } .chip .ic { color: var(--pink); }
+.dot.ok { box-shadow: 0 0 10px var(--ok); }
+
+h2 { display: flex; align-items: center; gap: 10px; font-size: 26px; }
+h2 .hic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #ff3ea533, #ff8a3d22); border: 1px solid #ff3ea540; color: #ff9ccf; box-shadow: 0 6px 20px -8px #ff3ea5; }
+h2 .hic .ic { width: 18px; height: 18px; vertical-align: 0; }
+.shead { margin-bottom: 16px; }
+
+.who { transition: transform .25s var(--ease); } .who:hover { transform: translateY(-3px); }
+.ring.live { box-shadow: 0 0 22px -2px #ff2d5588; }
+.who .ring .av { width: 64px; height: 64px; }
+
+.tiles { gap: 18px; }
+.tile, .clip, .feed, .box, .srow, .empty { background: linear-gradient(180deg, #1b1426, #130f1b); border: 1px solid #ffffff10; box-shadow: inset 0 1px 0 #ffffff0a, 0 10px 30px -18px #000; }
+.tile { border-radius: 20px; position: relative; isolation: isolate; transition: transform .3s var(--ease), box-shadow .3s var(--ease); animation: rise .5s var(--ease) both; }
+.tile:hover { transform: translateY(-3px); box-shadow: inset 0 1px 0 #ffffff0a, 0 24px 50px -20px #000, var(--glow); }
+.tile.rec::before { content: ""; position: absolute; inset: -1px; border-radius: 21px; padding: 1.5px; z-index: -1;
+  background: conic-gradient(from var(--a, 0deg), #ff2d55, #ff8a3d, #ffd23d55, #ff3ea5, #ff2d55);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spinA 4s linear infinite; }
+@property --a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes spinA { to { --a: 360deg; } }
+.screen { border-radius: 19px 19px 0 0; }
+.screen img.pv { transition: opacity .5s ease, transform 6s ease; } .tile:hover .screen img.pv { transform: scale(1.03); }
+.play span { background: linear-gradient(135deg, var(--pink), var(--orange)); box-shadow: 0 10px 40px #ff3ea588; transform: scale(.9); transition: transform .25s var(--ease); }
+.screen:hover .play span { transform: scale(1); } .play .ic { width: 26px; height: 26px; margin-left: 3px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #ffffff14; } .pill .ic { width: 12px; height: 12px; vertical-align: 0; }
+.pill.live { border-color: transparent; box-shadow: 0 0 18px -2px #ff2d55aa; }
+.recdot { width: 7px; height: 7px; border-radius: 50%; background: #fff; display: inline-block; animation: blink 1.2s steps(2, jump-none) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.spark { height: 40px; }
+
+.clips { gap: 16px; }
+.clip { border-radius: 18px; transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s; animation: rise .45s var(--ease) both; }
+.clip:hover { transform: translateY(-5px) scale(1.01); border-color: #ff3ea544; box-shadow: 0 26px 50px -22px #000, var(--glow); }
+.cv { overflow: hidden; } .cv img { transition: transform .6s var(--ease); } .clip:hover .cv img { transform: scale(1.06); }
+.cv::after { content: ""; position: absolute; inset: auto 0 0 0; height: 40%; background: linear-gradient(transparent, #0b0911cc); pointer-events: none; }
+.cv .badges { z-index: 2; }
+.small > .ic, .kv .ic, .pill .ic { margin-right: 2px; } .small .ic { margin-right: 3px; }
+.del { color: var(--mute); } .del .ic { width: 16px; height: 16px; }
+.del:hover { color: #ff8aa0; }
+.fchip { display: inline-flex; gap: 6px; align-items: center; transition: all .2s var(--ease); } .fchip .ic { width: 14px; height: 14px; }
+.fchip:hover { border-color: #ff3ea566; color: var(--text); }
+.fchip.on { background: linear-gradient(135deg, #ff3ea52e, #ff8a3d1f); }
+.feed { border-radius: 18px; } .fi { transition: background .2s; } .fi:hover { background: #ffffff06; }
+.fi:first-child { animation: rise .4s var(--ease) both; }
+.sheet { background: linear-gradient(180deg, #1a1324, #120e19); border-color: #ffffff14; box-shadow: 0 40px 120px #000c, var(--glow); animation: pop .3s var(--ease) both; }
+.modal { backdrop-filter: blur(10px) saturate(1.2); }
+#drawer { background: linear-gradient(180deg, #1a1324, #110d18); box-shadow: -30px 0 80px #0009; }
+.tabs button .ic { width: 16px; height: 16px; }
+#toast { background: linear-gradient(135deg, #2a1830, #1e1628); border-color: #ff3ea544; box-shadow: 0 20px 50px #000a, var(--glow); }
+.proc .ic { width: 30px; height: 30px; color: var(--warn); margin: 0 auto; }
+.spin { border-top-color: var(--pink); border-right-color: var(--orange); }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(.97) translateY(8px); } to { opacity: 1; transform: none; } }
+* { scrollbar-width: thin; scrollbar-color: #3a3049 transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: #3a3049; border-radius: 99px; border: 2px solid var(--bg); }
+input, select, textarea { background: #0e0a15; border-color: #ffffff14; transition: border-color .2s, box-shadow .2s; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--pink); box-shadow: 0 0 0 3px #ff3ea533; }
+
 @media (max-width: 1100px) { .cols { grid-template-columns: 1fr; } .feed { position: static; max-height: 360px; } }
 @media (max-width: 860px) { .live-grid, .clip-grid { grid-template-columns: 1fr; } .chatbox { border-left: 0; border-top: 1px solid var(--line); max-height: 300px; }
   .editor { max-height: none; } .sheet { overflow: auto; } .clip-grid { overflow: visible; } .clip-grid video { max-height: 60vh; } }
 @media (max-width: 560px) { header, main { padding-left: 16px; padding-right: 16px; } h1 { font-size: 22px; } .tiles { grid-template-columns: 1fr; }
   .clips { grid-template-columns: repeat(2, 1fr); } .styles { grid-template-columns: repeat(2, 1fr); } .two { grid-template-columns: 1fr; }
   .modal { padding: 0; } .sheet { border-radius: 0; max-height: 100vh; height: 100vh; } .filters input, .filters select { width: 100%; } }
-@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-scissors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol><symbol id="i-bell-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></symbol><symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor"/></symbol><symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></symbol><symbol id="i-rec" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6" fill="currentColor"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></symbol><symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></symbol><symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol><symbol id="i-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></symbol><symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/><path d="M19 2v4M21 4h-4M5 17v4M7 19H3"/></symbol><symbol id="i-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></symbol><symbol id="i-palm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 21c0-5 .3-8.5 1.5-11.5"/><path d="M14.5 9.5C13 6.5 9.5 5.5 6 7c2.6-.2 5 .7 8.5 2.5z"/><path d="M14.5 9.5c1.4-3 4.6-4 7.5-2.2-2.5-.1-4.9.6-7.5 2.2z"/><path d="M14.5 9.5c-3.2-.4-6.4 1.6-7.4 5 2.2-2.4 4.6-3.6 7.4-5z"/><path d="M14.5 9.5c3 .2 5.3 2.6 5.3 5.8-1.3-2.4-3.1-4-5.3-5.8z"/><path d="M8 21h11"/></symbol><symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol><symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol><symbol id="i-tv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="7" rx="2"/><path d="m17 2-5 5-5-5"/></symbol><symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M17 3v18M3 7.5h4M3 12h18M3 16.5h4M17 7.5h4M17 16.5h4"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></symbol><symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol><symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol><symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol><symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol><symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/></symbol><symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5"/></symbol><symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol><symbol id="i-github" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" d="M12 .3a12 12 0 0 0-3.8 23.38c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.21.7.82.58A12 12 0 0 0 12 .3"/></symbol></defs></svg>
 <header>
   <div class="logo"><img class="mark" src="/logo.svg" alt=""><div><h1>GTA 6 CLIPPER</h1><div class="by">by Numan Hayder</div></div></div>
   <div class="chips">
     <span class="chip"><span class="dot" id="d-live"></span><b id="s-live">0</b>online</span>
     <span class="chip"><span class="dot" id="d-rec"></span><b id="s-rec">0</b>recording</span>
-    <span class="chip">✂ <b id="s-clips">0</b>clips</span>
+    <span class="chip"><svg class="ic" aria-hidden="true"><use href="#i-scissors"/></svg><b id="s-clips">0</b>clips</span>
     <span class="chip" id="s-llm">AI …</span>
-    <span class="chip" id="s-core" title="Rust core: fast live checks, segment timing, one chat socket">⚡ …</span>
+    <span class="chip" id="s-core" title="Rust core: fast live checks, segment timing, one chat socket">…</span>
   </div>
   <div class="spacer"></div>
-  <button class="ghost" id="b-notify" onclick="toggleNotify()" title="Desktop alerts for new clips">🔕 Alerts off</button>
-  <button onclick="openDrawer()">⚙ Settings &amp; API keys</button>
+  <button class="ghost" id="b-notify" onclick="toggleNotify()" title="Desktop alerts for new clips"><svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg>Alerts off</button>
+  <a class="btn ghost icon-only" href="https://github.com/byte4day/gta6-clipper" target="_blank" rel="noopener" title="GitHub repository" aria-label="GitHub repository"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg></a>
+  <button onclick="openDrawer()"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>Settings &amp; API keys</button>
 </header>
 
 <main>
   <section>
-    <div class="shead"><h2>WHO'S ONLINE</h2><span class="small" id="roster-note"></span></div>
+    <div class="shead"><h2><span class="hic"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg></span>WHO'S ONLINE</h2><span class="small" id="roster-note"></span></div>
     <div class="roster" id="roster"></div>
   </section>
   <section>
-    <div class="shead"><h2>LIVE NOW</h2><span class="small">previews refresh every 4 s · click a preview to watch with live chat</span></div>
+    <div class="shead"><h2><span class="hic"><svg class="ic" aria-hidden="true"><use href="#i-radio"/></svg></span>LIVE NOW</h2><span class="small">previews refresh every 4 s · click a preview to watch with live chat</span></div>
     <div class="tiles" id="tiles"></div>
   </section>
   <div class="cols">
     <section>
-      <div class="shead"><h2>CLIPS</h2><span class="small" id="clip-note"></span></div>
+      <div class="shead"><h2><span class="hic"><svg class="ic" aria-hidden="true"><use href="#i-scissors"/></svg></span>CLIPS</h2><span class="small" id="clip-note"></span></div>
       <div class="filters">
         <input id="f-q" placeholder="Search title, hashtag, words…" oninput="renderClips()">
         <select id="f-s" onchange="renderClips()"><option value="">All streamers</option></select>
@@ -198,7 +296,7 @@ body.drawer #drawer { transform: none; } body.drawer #scrim { opacity: 1; pointe
       <div class="clips" id="clips"></div>
     </section>
     <aside>
-      <div class="shead"><h2>ACTIVITY</h2></div>
+      <div class="shead"><h2><span class="hic"><svg class="ic" aria-hidden="true"><use href="#i-activity"/></svg></span>ACTIVITY</h2></div>
       <div class="feed" id="feed"></div>
     </aside>
   </div>
@@ -211,11 +309,11 @@ body.drawer #drawer { transform: none; } body.drawer #scrim { opacity: 1; pointe
       <div>
         <div class="player"><video id="live-video" muted autoplay playsinline controls></video><div class="note" id="live-note">connecting…</div></div>
         <div class="livebar">
-          <span class="small" style="font-weight:800">✂ Clip the last</span>
+          <span class="small row" style="font-weight:800;gap:6px"><svg class="ic" aria-hidden="true"><use href="#i-scissors"/></svg>Clip the last</span>
           <button class="sm" onclick="clipLive(15)">15s</button><button class="sm" onclick="clipLive(30)">30s</button>
           <button class="sm" onclick="clipLive(60)">60s</button><button class="sm" onclick="clipLive(90)">90s</button>
           <div class="spacer"></div>
-          <button class="ghost sm" onclick="const v=$('#live-video');v.muted=!v.muted;this.textContent=v.muted?'🔇 Unmute':'🔊 Mute'">🔇 Unmute</button>
+          <button class="ghost sm" onclick="const v=$('#live-video');v.muted=!v.muted;this.innerHTML=v.muted?ICON_UNMUTE:ICON_MUTE"><svg class="ic" aria-hidden="true"><use href="#i-mute"/></svg>Unmute</button>
         </div>
         <div style="padding:12px 16px 14px"><div class="small" style="font-weight:700;margin-bottom:4px">Chat activity (last 2 min)</div>
           <svg class="spark" id="live-spark" viewBox="0 0 300 40" preserveAspectRatio="none"></svg>
@@ -232,11 +330,11 @@ body.drawer #drawer { transform: none; } body.drawer #scrim { opacity: 1; pointe
 
 <div id="scrim" onclick="closeDrawer()"></div>
 <aside id="drawer" aria-label="Settings">
-  <div class="dhead"><h2>SETTINGS</h2><button class="ghost" onclick="closeDrawer()">✕ Close</button></div>
+  <div class="dhead"><h2>SETTINGS</h2><button class="ghost" onclick="closeDrawer()"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>Close</button></div>
   <div class="tabs">
-    <button data-tab="keys" onclick="tab('keys')">🔑 API keys</button>
-    <button data-tab="streamers" onclick="tab('streamers')">📺 Streamers</button>
-    <button data-tab="clips" onclick="tab('clips')">🎬 Clips &amp; recording</button>
+    <button data-tab="keys" onclick="tab('keys')"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg>API keys</button>
+    <button data-tab="streamers" onclick="tab('streamers')"><svg class="ic" aria-hidden="true"><use href="#i-tv"/></svg>Streamers</button>
+    <button data-tab="clips" onclick="tab('clips')"><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Clips &amp; recording</button>
   </div>
   <div class="dbody" id="dbody"></div>
 </aside>
@@ -246,7 +344,11 @@ body.drawer #drawer { transform: none; } body.drawer #scrim { opacity: 1; pointe
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const toast = m => { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 2600); };
-const LABEL = {stream_start: "🔴 Stream start", gta6_open: "🌴 First GTA 6", chat_spike: "💬 Chat peak", audio_spike: "🔊 Loud moment", ai_moment: "🤖 AI moment", manual: "✂ Manual"};
+const LABEL = {stream_start: "Stream start", gta6_open: "First GTA 6", chat_spike: "Chat peak", audio_spike: "Loud moment", ai_moment: "AI moment", manual: "Manual"};
+const TICON = {stream_start: "radio", gta6_open: "palm", chat_spike: "chat", audio_spike: "volume", ai_moment: "sparkles", manual: "scissors"};
+const ic = n => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const lab = k => ic(TICON[k] || "scissors") + esc(LABEL[k] || k);
+const ICON_MUTE = ic("volume") + "Mute", ICON_UNMUTE = ic("mute") + "Unmute";
 const PROV = {groq: "Groq", openrouter: "OpenRouter", cerebras: "Cerebras", gemini: "Google Gemini", mistral: "Mistral"};
 const STY = {gta: ["Bebas", "#ff3ea5", "GTA"], bold: ["Anton", "#ffe500", "Bold"], mrbeast: ["Luckiest", "#39ff14", "MrBeast"], minimal: ["Montserrat", "#fff266", "Minimal"]};
 const STATUS_TXT = {transcribing: "Writing captions…", writing: "AI is writing the title…", rendering: "Rendering video…"};
@@ -270,6 +372,29 @@ function sparkPath(vals, w = 300, h = 40) {
   return `<path d="M0,${h} L${pts.join(" L")} L${w},${h} Z" fill="#ff3ea522"/><polyline points="${pts.join(" ")}" fill="none" stroke="#ff3ea5" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
 }
 
+
+/* ---------- tiny DOM morph: update only what changed (no flicker, images keep loading) ---------- */
+function morph(a, b) {
+  if (a.nodeType !== b.nodeType || a.nodeName !== b.nodeName || (a.id || "") !== (b.id || "")) { a.replaceWith(b); return; }
+  if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  if (a.nodeType !== 1) return;
+  for (const at of [...a.attributes]) if (!b.hasAttribute(at.name)) a.removeAttribute(at.name);
+  for (const at of [...b.attributes]) {
+    if (at.name === "src" && a.tagName === "IMG" && a.classList.contains("pv") && a.getAttribute("src")) continue;  // previews swap themselves
+    if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value);
+  }
+  morphKids(a, b);
+}
+function morphKids(a, b) {
+  const want = [...b.childNodes];
+  want.forEach((nb, i) => {
+    let cur = a.childNodes[i];
+    if (nb.id) { const m = a.querySelector(`:scope > [id="${CSS.escape(nb.id)}"]`); if (m && m !== cur) { a.insertBefore(m, cur || null); cur = m; } }
+    if (!cur) a.appendChild(nb); else morph(cur, nb);
+  });
+  while (a.childNodes.length > want.length) a.lastChild.remove();
+}
+function setHTML(el, html) { const t = document.createElement("div"); t.innerHTML = html; morphKids(el, t); }
 /* ---------- status, roster, live tiles, activity ---------- */
 let ST = {streamers: [], llm: [], recording: 0}, TILES_HTML = "", PV = {};
 function refreshPreviews() {  // preload the newest frame off-screen, then swap: no flicker
@@ -289,14 +414,14 @@ async function status() {
   $("#s-core").innerHTML = ST.core ? `<span class="dot ok"></span>Rust core` : `<span class="dot"></span>Python mode`;
   $("#s-llm").innerHTML = ST.llm.length ? `<span class="dot ok"></span>AI: ${esc(ST.llm.join(" → "))}` : `<span class="dot"></span>AI: add a key in Settings`;
   $("#roster-note").textContent = `${online.length} online · ${off.length} offline`;
-  const who = s => `<button class="who ${s.live ? "live" : ""} ${s.enabled ? "" : "dis"}" title="${esc(s.live ? s.title : s.status)}" onclick="${s.recording ? `openLive('${esc(s.key)}')` : s.live ? `document.getElementById('tile-${esc(s.key)}')?.scrollIntoView({behavior:'smooth',block:'center'})` : `openDrawer('streamers')`}">
+  const who = s => `<button id="who-${esc(s.key)}" class="who ${s.live ? "live" : ""} ${s.enabled ? "" : "dis"}" title="${esc(s.live ? s.title : s.status)}" onclick="${s.recording ? `openLive('${esc(s.key)}')` : s.live ? `document.getElementById('tile-${esc(s.key)}')?.scrollIntoView({behavior:'smooth',block:'center'})` : `openDrawer('streamers')`}">
       <div class="ring ${s.live ? "live" : ""} ${s.recording ? "rec" : ""}">${avatar(s.key, s.name, s.live ? "" : "off", s.avatar)}</div>
       <div class="n">${esc(s.name)}</div><div class="s">${s.live ? "● " + (dur(since(s)) || "live") : s.enabled ? "offline" : "paused"}</div></button>`;
-  $("#roster").innerHTML = all.length ? online.map(who).join("") + (online.length && off.length ? '<div class="divider"></div>' : "") + off.map(who).join("")
-    : '<div class="empty">No streamers yet. Add some in Settings → Streamers.</div>';
+  setHTML($("#roster"), all.length ? online.map(who).join("") + (online.length && off.length ? '<div class="divider"></div>' : "") + off.map(who).join("")
+    : '<div class="empty">No streamers yet. Add some in Settings → Streamers.</div>');
   const lives = [...online].sort((a, b) => (b.recording - a.recording) || (b.gta - a.gta));
   const tiles = lives.length ? lives.map(tileHTML).join("") : '<div class="empty">Nobody is live right now.<br>A tile with a live preview appears here the moment a streamer goes live.</div>';
-  if (tiles !== TILES_HTML) { TILES_HTML = tiles; $("#tiles").innerHTML = tiles; }
+  if (tiles !== TILES_HTML) { TILES_HTML = tiles; setHTML($("#tiles"), tiles); }
   renderFeed();
   if (LIVE) updateLiveHead();
 }
@@ -308,19 +433,19 @@ function tileHTML(s) {
     <div class="screen" ${s.recording ? `onclick="openLive('${k}')"` : ""}>
       ${pv || `<div class="idle" data-k="${k}">${avatar(s.key, s.name, "", s.avatar)}<div>${s.recording ? "Buffering preview…" : "Online, not recording<br><span class='small'>" + esc(why) + "</span>"}</div></div>`}
       <div class="shade"></div>
-      <div class="tl">${s.recording ? '<span class="pill live">● REC</span>' : '<span class="pill">LIVE</span>'}<span class="pill">${dur(since(s)) || "0m"}</span>${s.gta ? '<span class="pill gta">GTA 6</span>' : ""}</div>
-      <div class="tr">${s.in_ad ? '<span class="pill ad">AD skipped</span>' : ""}${s.quality ? `<span class="pill">${esc(s.quality)}</span>` : ""}${s.backend ? `<span class="pill">${s.backend === "browser" ? "🌐 browser" : "streamlink"}</span>` : ""}</div>
-      ${s.recording ? '<div class="play"><span>▶</span></div>' : ""}
+      <div class="tl">${s.recording ? '<span class="pill live"><i class="recdot"></i>REC</span>' : '<span class="pill">LIVE</span>'}<span class="pill">${dur(since(s)) || "0m"}</span>${s.gta ? '<span class="pill gta">GTA 6</span>' : ""}</div>
+      <div class="tr">${s.in_ad ? '<span class="pill ad">AD skipped</span>' : ""}${s.quality ? `<span class="pill">${esc(s.quality)}</span>` : ""}${s.backend ? `<span class="pill">${s.backend === "browser" ? "" + ic("globe") + "browser" : "streamlink"}</span>` : ""}</div>
+      ${s.recording ? '<div class="play"><span>${ic("play")}</span></div>' : ""}
       <div class="bl"><div class="ring live">${avatar(s.key, s.name, "", s.avatar)}</div><div class="grow"><div class="tname ell">${esc(s.name)}</div><div class="tcat ell">${esc(s.category || s.platform)} · ${esc(s.title)}</div></div></div>
     </div>
     <div class="tbody">
-      ${s.recording ? `<div class="row between small wrap"><span>💬 ${s.chat_rate}/s <span style="color:var(--dim)">normal ${s.chat_base}/s</span></span><span>${s.buffer_s}s buffer · ${s.mbps ? s.mbps + " Mb/s · " : ""}${s.clips} clips</span></div>
+      ${s.recording ? `<div class="row between small wrap"><span class="row" style="gap:5px">${ic("chat")}${s.chat_rate}/s <span style="color:var(--dim)">normal ${s.chat_base}/s</span></span><span>${s.buffer_s}s buffer · ${s.mbps ? s.mbps + " Mb/s · " : ""}${s.clips} clips</span></div>
       <svg class="spark" viewBox="0 0 300 40" preserveAspectRatio="none">${sparkPath(s.spark)}</svg>` : ""}
       <div class="events">${s.events.slice(-3).reverse().map(esc).join("<br>") || "&nbsp;"}</div>
       <div class="actions">${s.recording
-        ? `<button class="sm" onclick="openLive('${k}')">▶ Watch + chat</button><button class="sm ghost" onclick="clipNow('${k}',30)">✂ 30s</button><button class="sm ghost" onclick="clipNow('${k}',60)">✂ 60s</button>
-           <div class="spacer"></div><button class="sm danger" title="Stop recording until this stream ends" onclick="api('/api/stoprec/${k}').then(status)">■ Stop</button>`
-        : `<button class="sm" onclick="api('/api/record/${k}').then(status)">⏺ Record anyway</button><a class="small" href="${esc(s.url)}" target="_blank" rel="noopener">open ↗</a>`}</div>
+        ? `<button class="sm" onclick="openLive('${k}')">${ic("play")}Watch + chat</button><button class="sm ghost" onclick="clipNow('${k}',30)">${ic("scissors")}30s</button><button class="sm ghost" onclick="clipNow('${k}',60)">${ic("scissors")}60s</button>
+           <div class="spacer"></div><button class="sm danger" title="Stop recording until this stream ends" onclick="api('/api/stoprec/${k}').then(status)">${ic("stop")}Stop</button>`
+        : `<button class="sm" onclick="api('/api/record/${k}').then(status)">${ic("rec")}Record anyway</button><a class="small row" style="gap:4px" href="${esc(s.url)}" target="_blank" rel="noopener">open${ic("external")}</a>`}</div>
     </div></div>`;
 }
 async function clipNow(key, seconds) { await api(`/api/clip/${key}`, "POST", seconds ? {seconds} : undefined); }
@@ -328,14 +453,14 @@ function renderFeed() {
   const items = [];
   for (const s of ST.streamers) for (const e of s.events) items.push({s, t: e.slice(0, 8), m: e.slice(9)});
   items.sort((a, b) => b.t.localeCompare(a.t));
-  $("#feed").innerHTML = items.length ? items.slice(0, 60).map(i => `<div class="fi">${avatar(i.s.key, i.s.name, "", i.s.avatar)}<div class="grow"><b>${esc(i.s.name)}</b> ${esc(i.m)}<br><time>${esc(i.t)}</time></div></div>`).join("")
-    : '<div class="fi mute">Waiting for streams… “went live”, chat peaks, GTA 6 launches and new clips show up here.</div>';
+  setHTML($("#feed"), items.length ? items.slice(0, 60).map(i => `<div class="fi" id="fi-${esc(i.s.key)}-${esc(i.t)}-${hue(i.m)}">${avatar(i.s.key, i.s.name, "", i.s.avatar)}<div class="grow"><b>${esc(i.s.name)}</b> ${esc(i.m)}<br><time>${esc(i.t)}</time></div></div>`).join("")
+    : '<div class="fi mute">Waiting for streams… “went live”, chat peaks, GTA 6 launches and new clips show up here.</div>');
 }
 
 /* ---------- clips ---------- */
 let CLIPS = [], KNOWN = null, FT = "", NOTIFY = false, lastSig = "";
 try { NOTIFY = localStorage.getItem("notify") === "1" && Notification.permission === "granted"; } catch (e) {}
-const setNotifyBtn = () => $("#b-notify").textContent = NOTIFY ? "🔔 Alerts on" : "🔕 Alerts off";
+const setNotifyBtn = () => $("#b-notify").innerHTML = NOTIFY ? ic("bell") + "Alerts on" : ic("bell-off") + "Alerts off";
 async function toggleNotify() {
   if (!NOTIFY && "Notification" in window) NOTIFY = (await Notification.requestPermission()) === "granted"; else NOTIFY = false;
   try { localStorage.setItem("notify", NOTIFY ? "1" : "0"); } catch (e) {}
@@ -346,7 +471,7 @@ async function loadClips() {
   const isNew = new Set(CLIPS.filter(c => c._new).map(c => c.dir));
   const done = d.filter(c => c.status === "done");
   if (KNOWN) for (const c of done) if (!KNOWN.has(c.dir)) {
-    toast(`✂ New clip: ${c.title || c.streamer}`); isNew.add(c.dir);
+    toast(`New clip: ${c.title || c.streamer}`); isNew.add(c.dir);
     if (NOTIFY) try { new Notification("New GTA 6 clip · " + c.streamer, {body: c.title || "", icon: `/avatar/${c.streamer.toLowerCase()}`}); } catch (e) {}
   }
   KNOWN = new Set(done.map(c => c.dir));
@@ -363,25 +488,25 @@ async function loadClips() {
 }
 function renderClips() {
   const counts = {}; CLIPS.forEach(c => counts[c.trigger] = (counts[c.trigger] || 0) + 1);
-  $("#f-t").innerHTML = [["", "All", CLIPS.length], ...Object.keys(LABEL).filter(k => counts[k]).map(k => [k, LABEL[k], counts[k]])]
+  $("#f-t").innerHTML = [["", "All", CLIPS.length], ...Object.keys(LABEL).filter(k => counts[k]).map(k => [k, lab(k), counts[k]])]
     .map(([k, l, n]) => `<button class="fchip ${FT === k ? "on" : ""}" onclick="FT='${k}';renderClips()">${l} <span class="mute">${n}</span></button>`).join("");
   const q = $("#f-q").value.toLowerCase().trim(), s = $("#f-s").value;
   const list = CLIPS.filter(c => (!FT || c.trigger === FT) && (!s || c.streamer === s) &&
     (!q || [c.title, c.caption, c.transcript, c.streamer, (c.hashtags || []).join(" ")].join(" ").toLowerCase().includes(q)));
   $("#clip-note").textContent = CLIPS.length ? `${list.length} of ${CLIPS.length} · hover to preview, click to edit` : "";
-  if (!CLIPS.length) { $("#clips").innerHTML = '<div class="empty">No clips yet. They land here a minute or two after a moment happens on a live stream.<br>Tip: open a live tile and press ✂ to clip by hand.</div>'; return; }
+  if (!CLIPS.length) { $("#clips").innerHTML = '<div class="empty">No clips yet. They land here a minute or two after a moment happens on a live stream.<br>Tip: open a live tile and press the scissors to clip by hand.</div>'; return; }
   if (!list.length) { $("#clips").innerHTML = '<div class="empty">No clips match these filters.</div>'; return; }
   $("#clips").innerHTML = list.map(c => {
     const main = c.outputs && (c.outputs.vertical || Object.values(c.outputs)[0]);
     const ready = c.status === "done" && main, v = c.rendered || 0, dir = esc(c.dir);
     return `<div class="clip ${c._new ? "new" : ""}" onclick="openClip('${dir}')" ${ready ? `onmouseenter="hoverPlay(this,'/files/${dir}/${esc(main)}?v=${v}')" onmouseleave="hoverStop(this)"` : ""}>
       <div class="cv">${ready ? `<img src="/files/${dir}/thumb.jpg?v=${v}" alt="" loading="lazy">`
-        : c.status === "error" ? `<div class="proc">⚠<div>${esc(c.error || "failed")}</div></div>`
+        : c.status === "error" ? `<div class="proc">${ic("alert")}<div>${esc(c.error || "failed")}</div></div>`
         : `<div class="proc"><div class="spin"></div><div>${esc(STATUS_TXT[c.status] || "Cutting clip…")}</div></div>`}
-        <div class="badges"><span class="pill">${esc(LABEL[c.trigger] || c.trigger)}</span>${c.duration ? `<span class="pill">${Math.round(c.duration)}s</span>` : ""}</div></div>
+        <div class="badges"><span class="pill">${lab(c.trigger)}</span>${c.duration ? `<span class="pill">${Math.round(c.duration)}s</span>` : ""}</div></div>
       <div class="cb"><div class="t">${esc(c.title || c.reason || "")}</div>
         <div class="row small">${avatar(c.streamer.toLowerCase(), c.streamer)}<span class="ell grow">${esc(c.streamer)}</span><span>${c.started ? ago(c.started) : ""}</span>
-          <button class="del" title="Delete clip" aria-label="Delete clip" onclick="event.stopPropagation(); quickDelete('${dir}', this)">🗑</button></div></div></div>`;
+          <button class="del" title="Delete clip" aria-label="Delete clip" onclick="event.stopPropagation(); quickDelete('${dir}', this)">${ic("trash")}</button></div></div></div>`;
   }).join("");
 }
 async function quickDelete(dir, btn) {
@@ -401,7 +526,7 @@ function openClip(dir, refresh) {
   if (!refresh && c._new) { c._new = false; lastSig = ""; }
   OPEN_CLIP = dir; OPEN_STATUS = c.status; OPEN_V = c.rendered; if (!refresh) EDIT_STYLE = c.style || "gta";
   const ready = c.status === "done" && c.outputs, main = ready && (c.outputs.vertical || Object.values(c.outputs)[0]), v = c.rendered || 0, d = esc(c.dir);
-  $("#clip-head").innerHTML = `${avatar(c.streamer.toLowerCase(), c.streamer)}<div class="grow"><b>${esc(c.streamer)}</b> <span class="small">· ${esc(LABEL[c.trigger] || c.trigger)} · ${c.started ? esc(new Date(c.started).toLocaleString()) : ""}</span></div><button class="ghost sm" onclick="closeClip()">✕</button>`;
+  $("#clip-head").innerHTML = `${avatar(c.streamer.toLowerCase(), c.streamer)}<div class="grow"><b>${esc(c.streamer)}</b> <span class="small">· ${lab(c.trigger)} · ${c.started ? esc(new Date(c.started).toLocaleString()) : ""}</span></div><button class="ghost sm" aria-label="Close" onclick="closeClip()">${ic("x")}</button>`;
   $("#clip-vid").innerHTML = ready ? `<video src="/files/${d}/${esc(main)}?v=${v}" controls autoplay playsinline></video>`
     : `<div style="aspect-ratio:9/16;width:100%;display:grid;place-items:center;color:var(--mute);font-weight:700;text-align:center"><div><div class="spin"></div><p>${esc(STATUS_TXT[c.status] || c.status)}</p></div></div>`;
   if (refresh && document.activeElement && $("#clip-ed").contains(document.activeElement)) return;  // don't wipe what you're typing
@@ -411,18 +536,18 @@ function openClip(dir, refresh) {
     <label class="f">On-screen hook (top of the video, first seconds)<input id="e-hook" value="${esc(c.hook)}" maxlength="60"></label>
     <label class="f">Caption<textarea id="e-cap" rows="2">${esc(c.caption)}</textarea></label>
     <label class="f">Hashtags<textarea id="e-tags" rows="2">${esc((c.hashtags || []).join(" "))}</textarea></label>
-    <div class="actions"><button onclick="saveClip()">💾 Save text</button>
-      <button class="ghost" data-post="${esc(post)}" onclick="navigator.clipboard.writeText(this.dataset.post).then(()=>toast('Title + caption + hashtags copied'))">📋 Copy post</button>
-      ${ready ? Object.entries(c.outputs).map(([k, f]) => `<a class="small" href="/files/${d}/${esc(f)}" download>⬇ ${esc(k)}</a>`).join(" ") + ` <a class="small" href="/files/${d}/raw.mp4" download>⬇ raw</a>` : ""}</div>
+    <div class="actions"><button onclick="saveClip()">${ic("save")}Save text</button>
+      <button class="ghost" data-post="${esc(post)}" onclick="navigator.clipboard.writeText(this.dataset.post).then(()=>toast('Title + caption + hashtags copied'))">${ic("copy")}Copy post</button>
+      ${ready ? Object.entries(c.outputs).map(([k, f]) => `<a class="small" href="/files/${d}/${esc(f)}" download>${ic("download")}${esc(k)}</a>`).join(" ") + ` <a class="small" href="/files/${d}/raw.mp4" download>${ic("download")}raw</a>` : ""}</div>
     <div class="box"><b>Caption design</b><div class="styles" id="e-styles">${styleCards(EDIT_STYLE, "pickStyle")}</div>
-      <div class="actions"><button onclick="rerenderClip()" ${ready || c.status === "error" ? "" : "disabled"}>🎬 Re-render with this style + hook</button><span class="small">about 30 s, keeps the captions</span></div></div>
-    <div class="box"><b>Why it was clipped</b><div class="kv"><b>Trigger</b><span>${esc(LABEL[c.trigger] || c.trigger)}</span><b>Reason</b><span>${esc(c.reason || "")}</span>
+      <div class="actions"><button onclick="rerenderClip()" ${ready || c.status === "error" ? "" : "disabled"}>${ic("refresh")}Re-render with this style + hook</button><span class="small">about 30 s, keeps the captions</span></div></div>
+    <div class="box"><b>Why it was clipped</b><div class="kv"><b>Trigger</b><span>${lab(c.trigger)}</span><b>Reason</b><span>${esc(c.reason || "")}</span>
       <b>Length</b><span>${c.duration ? c.duration + " s" : "—"}</span>${c.score != null ? `<b>AI viral score</b><span>${esc(c.score)}/10</span>` : ""}
       <b>Game</b><span>${esc(c.category || "—")}</span><b>Stream title</b><span>${esc(c.title_stream || "")}</span></div></div>
     <div class="box"><b>Transcript</b><div class="transcript">${esc(c.transcript || "(no speech detected)")}</div></div>
     ${(c.chat || []).length ? `<div class="box"><b>Chat during the clip</b><div class="transcript" style="font-size:12px">${c.chat.map(l => { const i = l.indexOf(": ");
         return `<div><b style="color:hsl(${hue(l.slice(0, i))} 80% 70%)">${esc(l.slice(0, i))}</b>${esc(l.slice(i))}</div>`; }).join("")}</div></div>` : ""}
-    <div class="actions"><div class="spacer"></div><button class="danger sm" onclick="deleteClip()">🗑 Delete clip</button></div>`;
+    <div class="actions"><div class="spacer"></div><button class="danger sm" onclick="deleteClip()">${ic("trash")}Delete clip</button></div>`;
   $("#m-clip").classList.add("show");
 }
 const styleCards = (on, fn) => Object.entries(STY).map(([k, [f, col, lab]]) =>
@@ -459,8 +584,8 @@ async function openLive(key) {
 function updateLiveHead() {
   const s = ST.streamers.find(x => x.key === LIVE); if (!s) return;
   $("#live-head").innerHTML = `<div class="ring live ${s.recording ? "rec" : ""}">${avatar(s.key, s.name, "", s.avatar)}</div>
-    <div class="grow"><div class="row wrap" style="gap:6px"><b style="font-size:16px">${esc(s.name)}</b>${s.recording ? '<span class="pill live">● REC</span>' : '<span class="pill soft">not recording</span>'}${s.gta ? '<span class="pill gta">GTA 6</span>' : ""}${s.in_ad ? '<span class="pill ad">AD skipped</span>' : ""}<span class="pill soft">${dur(since(s))}</span></div>
-    <div class="small ell">${esc(s.category)} · ${esc(s.title)}</div></div><a class="small" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.platform)} ↗</a><button class="ghost sm" onclick="closeLive()">✕</button>`;
+    <div class="grow"><div class="row wrap" style="gap:6px"><b style="font-size:16px">${esc(s.name)}</b>${s.recording ? '<span class="pill live"><i class="recdot"></i>REC</span>' : '<span class="pill soft">not recording</span>'}${s.gta ? '<span class="pill gta">GTA 6</span>' : ""}${s.in_ad ? '<span class="pill ad">AD skipped</span>' : ""}<span class="pill soft">${dur(since(s))}</span></div>
+    <div class="small ell">${esc(s.category)} · ${esc(s.title)}</div></div><a class="small" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.platform)}${ic("external")}</a><button class="ghost sm icon-only" aria-label="Close" onclick="closeLive()">${ic("x")}</button>`;
   $("#live-spark").innerHTML = sparkPath(s.spark);
   $("#live-events").innerHTML = s.events.slice().reverse().map(esc).join("<br>");
 }
@@ -493,10 +618,10 @@ async function refreshTab() { await loadSettings(); tab(TAB); }
 function keysTab() {
   return `<div class="small">Keys are saved to <b>.env</b> on this computer only and work right away, no restart. Clips use the first provider that works, top to bottom. A Groq key also turns on fast cloud Whisper captions.</div>` +
     SET.providers.map(p => `<div class="box">
-      <div class="row between"><b>${esc(PROV[p.id] || p.id)}</b><span class="pill ${p.has_key ? "ok" : "soft"}">${p.has_key ? "✔ key " + esc(p.masked) : "no key"}</span></div>
+      <div class="row between"><b>${esc(PROV[p.id] || p.id)}</b><span class="pill ${p.has_key ? "ok" : "soft"}">${p.has_key ? ic("check") + "key " + esc(p.masked) : "no key"}</span></div>
       <div class="two"><label class="f">API key<input type="password" id="k-${p.id}" placeholder="${p.has_key ? "paste to replace" : "paste key"}" autocomplete="off"></label><label class="f">Model<input id="m-${p.id}" value="${esc(p.model)}"></label></div>
       <div class="actions"><button class="sm" onclick="saveKey('${p.id}')">Save</button><button class="ghost sm" onclick="api('/api/test/${p.id}')">Test</button>
-        ${p.has_key ? `<button class="danger sm" onclick="removeKey('${p.id}')">Remove</button>` : ""}<a class="small" href="${esc(p.get_key)}" target="_blank" rel="noopener">Get a free key ↗</a></div></div>`).join("");
+        ${p.has_key ? `<button class="danger sm" onclick="removeKey('${p.id}')">Remove</button>` : ""}<a class="small" href="${esc(p.get_key)}" target="_blank" rel="noopener">Get a free key${ic("external")}</a></div></div>`).join("");
 }
 async function saveKey(id) {
   const key = $("#k-" + id).value.trim(), model = $("#m-" + id).value.trim(), body = {provider: id, model};
@@ -536,7 +661,9 @@ function clipsTab() {
   return `<div class="box"><b>Default caption design</b><div class="styles">${styleCards(s.edit.caption_style, "setStyle")}</div>
       <div class="two"><label class="f">Words per caption${num("edit", "words_per_caption")}</label><label class="f">Gameplay zoom (vertical)${num("edit", "vertical_zoom", 0.05)}</label></div>
       <div class="row wrap"><label class="check"><input type="checkbox" ${fmts.includes("vertical") ? "checked" : ""} onchange="setFormat('vertical',this.checked)">9:16 vertical</label>
-        <label class="check"><input type="checkbox" ${fmts.includes("landscape") ? "checked" : ""} onchange="setFormat('landscape',this.checked)">16:9 landscape</label></div></div>
+        <label class="check"><input type="checkbox" ${fmts.includes("landscape") ? "checked" : ""} onchange="setFormat('landscape',this.checked)">16:9 landscape</label></div>
+      <div class="row wrap"><label class="check"><input type="checkbox" ${s.edit.watermark !== false ? "checked" : ""} onchange="setOpt('edit','watermark',this.checked)">GitHub link in the lower corner</label>
+        <label class="check"><input type="checkbox" ${s.edit.progress_bar !== false ? "checked" : ""} onchange="setOpt('edit','progress_bar',this.checked)">Progress bar</label></div></div>
     <div class="box"><b>Recording</b><div class="two">
       <label class="f">Record with${sel("general", "recorder", {browser: "Headless browser (Chrome)", streamlink: "Streamlink"})}</label>
       <label class="f">Quality${sel("general", "quality", {"1080p60,best": "1080p60", "720p60,720p,best": "720p60", "480p,best": "480p (saves data)", best: "Best available"})}</label>

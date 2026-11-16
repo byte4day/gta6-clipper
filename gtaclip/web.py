@@ -54,7 +54,8 @@ KEY_PAGES = {
 # settings the dashboard may change: section -> key -> (type, allowed values or None)
 EDITABLE = {
     "edit": {"caption_style": (str, ["gta", "bold", "mrbeast", "minimal"]), "words_per_caption": (int, None),
-             "formats": (list, ["vertical", "landscape"]), "vertical_zoom": (float, None)},
+             "formats": (list, ["vertical", "landscape"]), "vertical_zoom": (float, None),
+             "watermark": (bool, None), "progress_bar": (bool, None)},
     "general": {"record_mode": (str, ["always", "gta_only"]), "max_recordings": (int, None),
                 "recorder": (str, ["browser", "streamlink"]), "quality": (str, ["1080p60,best", "720p60,720p,best", "480p,best", "best"])},
     "llm": {"ai_scan": (bool, None), "ai_min_score": (int, None), "scan_seconds": (int, None)},

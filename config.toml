@@ -22,6 +22,8 @@ vertical_zoom = 1.0           # >1 zooms gameplay in the 9:16 frame (can crop th
 words_per_caption = 3
 hook_seconds = 3.5            # how long the AI hook text stays on top
 progress_bar = true
+watermark = true              # repo link in the lower-right corner of every clip
+watermark_text = "github.com/byte4day/gta6-clipper"
 loudnorm = true
 
 [whisper]

@@ -13,6 +13,7 @@ from .llm import LLM, clip_metadata
 from .transcribe import transcribe
 
 log = logging.getLogger("edit")
+REPO_MARK = "github.com/byte4day/gta6-clipper"
 
 
 def probe_duration(path: Path) -> float:
@@ -101,7 +102,8 @@ def render_outputs(cfg, clip_dir: Path, meta: dict, tr: dict, duration: float) -
         ass = clip_dir / f"captions_{fmt}.ass"
         ass.write_text(build_ass(tr["words"], duration, style, vertical, hook=meta.get("hook", ""),
                                  hook_seconds=float(e.get("hook_seconds", 3.5)), tag=tag,
-                                 per=int(e.get("words_per_caption", 3))))
+                                 per=int(e.get("words_per_caption", 3)),
+                                 watermark=e.get("watermark_text", REPO_MARK) if e.get("watermark", True) else ""))
         out = clip_dir / f"final_{fmt}.mp4"
         tmp = clip_dir / f".rendering_{fmt}.mp4"
         render(cfg, raw, ass, tmp, vertical, duration)

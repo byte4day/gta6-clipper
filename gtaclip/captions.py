@@ -44,7 +44,7 @@ def group_words(words: list[dict], per: int = 3, max_gap: float = 0.7) -> list[l
 
 
 def build_ass(words: list[dict], duration: float, style: str = "gta", vertical: bool = True,
-              hook: str = "", hook_seconds: float = 3.5, tag: str = "", per: int = 3) -> str:
+              hook: str = "", hook_seconds: float = 3.5, tag: str = "", per: int = 3, watermark: str = "") -> str:
     st = STYLES.get(style, STYLES["gta"])
     W, H = (1080, 1920) if vertical else (1920, 1080)
     cap_y = int(H * 0.70) if vertical else int(H * 0.82)
@@ -66,6 +66,7 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
 Style: Cap,{st['font']},{size},{st['color']},&H000000FF,&H00000000,&H96000000,-1,0,0,0,100,100,{st['spacing']},0,1,{st['outline']},{st['shadow']},5,60,60,0,1
 Style: Hook,{hook_font},{int(84 * scale)},{hook_text_color},&H000000FF,{hook_box},&H00000000,-1,0,0,0,100,100,1,0,3,18,0,8,80,80,0,1
 Style: Tag,Montserrat,{int(40 * scale)},&H40FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,2,1,2,40,40,0,1
+Style: Mark,Montserrat,{int(30 * scale)},&H30FFFFFF,&H000000FF,&H8C000000,&H00000000,-1,0,0,0,100,100,0,0,3,9,0,3,30,30,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -77,6 +78,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                   f"{{\\pos({W // 2},{hy})\\fad(0,250)\\fscx70\\fscy70\\t(0,160,\\fscx106\\fscy106)\\t(160,260,\\fscx100\\fscy100)}}{_clean(hook)}")
     if tag:
         ev.append(f"Dialogue: 1,{_ts(0)},{_ts(duration)},Tag,,0,0,0,,{{\\pos({W // 2},{H - (150 if vertical else 40)})}}{_clean(tag)}")
+
+    if watermark:  # repo link, lower-right corner, above the progress bar
+        mx, my = W - 34, H - (44 if vertical else 30)
+        ev.append(f"Dialogue: 1,{_ts(0)},{_ts(duration)},Mark,,0,0,0,,{{\\pos({mx},{my})}}{_clean(watermark)}")
 
     for chunk in group_words(words, per):
         texts = [_clean(w["word"]).upper() if st["upper"] else _clean(w["word"]) for w in chunk]
