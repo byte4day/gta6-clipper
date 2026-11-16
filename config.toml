@@ -41,8 +41,8 @@ scan_seconds = 40
 ai_min_score = 8              # 0-10, clip when the LLM scores >= this
 
 [llm.models]
-groq = "llama-3.3-70b-versatile"
-openrouter = "meta-llama/llama-3.3-70b-instruct:free"
+groq = "qwen/qwen3.8-27b"                          # Groq free tier
+openrouter = "particle-ai/particle-1:free"          # OpenRouter :free pool
 cerebras = "llama-3.3-70b"
 gemini = "gemini-2.5-flash"
 mistral = "mistral-small-latest"

@@ -91,8 +91,9 @@ def main() -> None:
                 continue
             one = LLM(cfg)
             one.order = [p]
-            out = one.chat("Reply with exactly: ok", "ping", max_tokens=5)
-            print(f"  {p:<11} {'✔ ' + out.strip()[:20] if out else '✗ failed'}")
+            out = one.chat("Reply with exactly: ok", "ping", max_tokens=32)
+            model = llm.models.get(p, "")
+            print(f"  {p:<11} {'✔ ' + out.strip()[:20] if out else '✗ failed'}  ({model})")
         print("  whisper     " + ("groq API" if os.environ.get("GROQ_API_KEY") else f"local faster-whisper ({cfg['whisper'].get('local_model')})"))
         print("  ffmpeg      " + ("✔" if shutil.which("ffmpeg") else "✗ missing"))
 

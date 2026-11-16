@@ -52,10 +52,17 @@ class LLM:
                     self.cooldown[p] = time.time() + min(wait, 300)
                     log.warning("%s rate-limited, next provider", p)
                     continue
-                r.raise_for_status()
-                text = r.json()["choices"][0]["message"]["content"]
+                if r.status_code >= 400:
+                    detail = (r.text or "")[:160].replace("\n", " ")
+                    log.warning("%s HTTP %s: %s", p, r.status_code, detail)
+                    self.cooldown[p] = time.time() + (60 if r.status_code == 404 else 20)
+                    continue
+                msg = (r.json().get("choices") or [{}])[0].get("message") or {}
+                text = (msg.get("content") or "").strip()
                 if text:
                     return text
+                # Free reasoning models often spend the whole budget on reasoning and leave content empty
+                log.warning("%s empty content (model=%s)", p, self.models.get(p))
             except Exception as e:  # network/provider errors -> try next provider
                 log.warning("%s failed: %s", p, str(e)[:160])
                 self.cooldown[p] = time.time() + 20
