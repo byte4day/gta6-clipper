@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Launcher: ./gtaclip-run run | clip-file <video> | test-ai
+cd "$(dirname "$0")"
+[ -d .venv ] || { uv venv --python 3.12 .venv && uv pip install --python .venv -r requirements.txt && .venv/bin/playwright install chromium-headless-shell; }
+# Rust core (optional but fast): build once, rebuild when the source changes
+if command -v cargo >/dev/null && { [ ! -x core/target/release/gtacore ] || [ -n "$(find core/src core/Cargo.toml -newer core/target/release/gtacore 2>/dev/null)" ]; }; then
+  echo "building Rust core…" && cargo build --release --quiet --manifest-path core/Cargo.toml || echo "Rust build failed; running in Python mode"
+fi
+export PATH="$PWD/.venv/bin:$PATH"
+exec .venv/bin/python -m gtaclip "$@"

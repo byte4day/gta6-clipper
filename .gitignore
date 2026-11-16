@@ -1,0 +1,8 @@
+.venv/
+.env
+buffer/
+clips/
+state/
+__pycache__/
+.pytest_cache/
+core/target/

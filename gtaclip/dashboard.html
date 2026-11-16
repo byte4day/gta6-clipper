@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GTA 6 Clipper</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+@font-face { font-family: Anton; src: url(/fonts/Anton-Regular.ttf); }
+@font-face { font-family: Montserrat; src: url(/fonts/Montserrat.ttf); font-weight: 100 900; }
+@font-face { font-family: Bebas; src: url(/fonts/BebasNeue-Regular.ttf); }
+@font-face { font-family: Luckiest; src: url(/fonts/LuckiestGuy-Regular.ttf); }
+:root {
+  --bg: #0b0911; --panel: #15111c; --panel2: #1d1726; --line: #2a2236; --line2: #3a3049; --text: #f4eefb; --mute: #9d90b0; --dim: #6d6280;
+  --pink: #ff3ea5; --orange: #ff8a3d; --violet: #8a5cff; --live: #ff2d55; --ok: #3ddc97; --warn: #ffc53d;
+  --grad: linear-gradient(90deg, var(--pink), var(--orange));
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 Montserrat, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto 0; height: 420px; pointer-events: none; z-index: -1;
+  background: radial-gradient(60% 100% at 15% 0%, #ff3ea522, transparent 70%), radial-gradient(50% 90% at 85% 0%, #ff8a3d1c, transparent 70%); }
+button { font: 800 13px Montserrat, sans-serif; border: 0; border-radius: 10px; padding: 9px 13px; cursor: pointer; background: var(--grad); color: #fff; transition: transform .12s, filter .12s; }
+button:hover { filter: brightness(1.08); } button:active { transform: scale(.97); }
+button:disabled { background: #2a2236; color: var(--dim); cursor: not-allowed; filter: none; }
+button.ghost { background: #241d2f; color: var(--text); } button.ghost:hover { background: #2e2540; }
+button.sm { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+button.danger { background: #3a1420; color: #ff7a93; }
+button:focus-visible, .who:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+a { color: var(--orange); }
+input, select, textarea { font: 600 13px Montserrat, sans-serif; background: #0f0b16; color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; min-width: 0; width: 100%; }
+textarea { resize: vertical; line-height: 1.4; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--pink); outline-offset: -1px; }
+.mute { color: var(--mute); } .small { font-size: 12px; color: var(--mute); }
+.row { display: flex; align-items: center; gap: 10px; } .between { justify-content: space-between; } .wrap { flex-wrap: wrap; } .grow { flex: 1; min-width: 0; }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .spacer { flex: 1; }
+
+header { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); background: #0b0911cc; border-bottom: 1px solid var(--line); padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.mark { width: 42px; height: 42px; display: block; filter: drop-shadow(0 6px 18px #ff3ea555); }
+.by { font: 700 10px Montserrat, sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--mute); margin-top: 3px; }
+h1 { font: 28px/1 Anton, Impact, sans-serif; margin: 0; letter-spacing: 1px; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; font-weight: 700; font-size: 12px; color: var(--mute); }
+.chip b { color: var(--text); font-size: 14px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; }
+.dot.live { background: var(--live); animation: pulse 1.6s infinite; } .dot.ok { background: var(--ok); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 #ff2d55aa; } 70% { box-shadow: 0 0 0 8px #ff2d5500; } 100% { box-shadow: 0 0 0 0 #ff2d5500; } }
+
+main { padding: 22px 24px 80px; display: grid; gap: 34px; max-width: 1680px; margin: 0 auto; }
+main > *, .cols > * { min-width: 0; }
+h2 { font: 24px Anton, Impact, sans-serif; letter-spacing: .5px; margin: 0; font-weight: 400; }
+.shead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; } .shead .small { font-weight: 600; }
+
+.av { position: relative; width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; font: 800 15px Montserrat, sans-serif; color: #fff; background: linear-gradient(135deg, var(--violet), var(--pink)); overflow: hidden; }
+.av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.av.off { filter: grayscale(1) brightness(.55); }
+.ring { padding: 3px; border-radius: 50%; background: #2a2236; flex: none; } .ring .av { border: 2px solid var(--bg); }
+.ring.live { background: conic-gradient(var(--live), var(--orange), var(--pink), var(--live)); }
+.ring.rec { animation: spin 3s linear infinite; } .ring.rec .av { animation: spin 3s linear infinite reverse; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.roster { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 8px; scrollbar-width: thin; }
+.who { display: grid; justify-items: center; gap: 6px; width: 82px; flex: none; text-align: center; cursor: pointer; background: none; padding: 0; color: inherit; font: inherit; border-radius: 12px; }
+.who:hover { filter: none; } .who:hover .n { color: var(--pink); }
+.who .ring .av { width: 62px; height: 62px; font-size: 22px; }
+.who .n { font-weight: 700; font-size: 12px; max-width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who .s { font-size: 10px; font-weight: 800; letter-spacing: .5px; color: var(--dim); text-transform: uppercase; margin-top: -4px; }
+.who.live .s { color: var(--live); } .who.dis { opacity: .35; }
+.divider { width: 1px; background: var(--line); flex: none; margin: 8px 6px 26px; }
+
+.tiles { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: grid; transition: border-color .2s; }
+.tile:hover { border-color: var(--line2); } .tile.rec { border-color: #4a2036; }
+.screen { position: relative; aspect-ratio: 16/9; background: #000; overflow: hidden; }
+.tile.rec .screen { cursor: pointer; }
+.screen img.pv { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.screen .shade { position: absolute; inset: 0; background: linear-gradient(180deg, #0009 0%, transparent 28%, transparent 55%, #000d 100%); pointer-events: none; }
+.screen .tl, .screen .tr { position: absolute; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; } .screen .tl { left: 10px; } .screen .tr { right: 10px; justify-content: flex-end; }
+.screen .bl { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; align-items: center; gap: 10px; }
+.screen .play { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity .2s; }
+.screen:hover .play { opacity: 1; }
+.play span { width: 62px; height: 62px; border-radius: 50%; background: #ff3ea5e0; display: grid; place-items: center; font-size: 24px; box-shadow: 0 8px 30px #0008; }
+.screen .idle { position: absolute; inset: 0; padding: 30px 0 62px; display: grid; place-items: center; text-align: center; gap: 10px; align-content: center; color: var(--mute); font-weight: 700; background: radial-gradient(circle at 50% 40%, #2a1830, #0f0b16); }
+.screen .idle .av { width: 56px; height: 56px; font-size: 22px; margin: 0 auto; }
+.pill { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: #000a; color: #fff; white-space: nowrap; backdrop-filter: blur(6px); letter-spacing: .3px; }
+.pill.live { background: var(--live); } .pill.gta { background: var(--grad); } .pill.ad { background: var(--warn); color: #000; }
+.pill.ok { background: #13392b; color: var(--ok); } .pill.soft { background: #2a2236; color: var(--mute); }
+.tname { font-weight: 800; font-size: 15px; text-shadow: 0 1px 6px #000; } .tcat { font-size: 12px; color: #ddd; text-shadow: 0 1px 4px #000; }
+.tbody { padding: 12px 14px 14px; display: grid; gap: 10px; }
+.spark { width: 100%; height: 34px; display: block; }
+.events { font: 11px/1.55 ui-monospace, SFMono-Regular, monospace; color: var(--mute); max-height: 52px; overflow: hidden; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; }
+.feed { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 6px 0; max-height: 640px; overflow: auto; position: sticky; top: 90px; }
+.fi { display: flex; gap: 10px; padding: 9px 14px; align-items: flex-start; font-size: 12px; border-bottom: 1px solid #ffffff08; }
+.fi .av { width: 26px; height: 26px; font-size: 11px; } .fi time { color: var(--dim); font: 11px ui-monospace, monospace; }
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.filters input { width: 230px; } .filters select { width: 170px; }
+.fchip { background: #1d1726; color: var(--mute); padding: 7px 11px; font-size: 12px; border-radius: 99px; border: 1px solid var(--line); }
+.fchip.on { background: #2a1424; color: var(--text); border-color: var(--pink); }
+.clips { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.clip { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: grid; align-content: start; cursor: pointer; transition: transform .18s, border-color .18s; }
+.clip:hover { transform: translateY(-3px); border-color: var(--line2); }
+.clip.new { animation: glow 2.4s ease-out 2; }
+@keyframes glow { 0% { box-shadow: 0 0 0 0 #ff3ea5aa; } 100% { box-shadow: 0 0 0 14px #ff3ea500; } }
+.cv { position: relative; aspect-ratio: 9/16; background: #000; }
+.cv img, .cv video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cv .badges { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; gap: 6px; }
+.proc { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 10px; color: var(--mute); font-weight: 700; text-align: center; padding: 14px; background: radial-gradient(circle at 50% 40%, #241530, #0f0b16); }
+.spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #ffffff1a; border-top-color: var(--pink); animation: spin .9s linear infinite; margin: 0 auto; }
+.cb { padding: 10px 12px 12px; display: grid; gap: 6px; }
+.cb .t { font-weight: 800; font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cb .av { width: 20px; height: 20px; font-size: 9px; }
+.del { background: none; padding: 2px 4px; font-size: 14px; border-radius: 6px; opacity: .45; flex: none; }
+.del:hover { background: #3a1420; opacity: 1; filter: none; } .clip:hover .del { opacity: .9; }
+.empty { color: var(--mute); padding: 34px; border: 1px dashed var(--line2); border-radius: 16px; text-align: center; grid-column: 1 / -1; line-height: 1.7; }
+
+.modal { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; background: #05030acc; backdrop-filter: blur(6px); padding: 20px; }
+.modal.show { display: grid; }
+.sheet { background: var(--panel); border: 1px solid var(--line2); border-radius: 18px; width: min(1180px, 100%); max-height: calc(100vh - 40px); overflow: hidden; display: grid; grid-template-rows: auto 1fr; box-shadow: 0 30px 80px #000a; }
+.mhead { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.live-grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; min-height: 0; overflow: auto; }
+.player { background: #000; position: relative; aspect-ratio: 16/9; } .player video { width: 100%; height: 100%; display: block; }
+.player .note { position: absolute; inset: 0; display: grid; place-items: center; color: var(--mute); font-weight: 700; pointer-events: none; }
+.chatbox { border-left: 1px solid var(--line); display: grid; grid-template-rows: auto 1fr; min-height: 0; max-height: min(72vh, 680px); }
+.chatlog { overflow: auto; padding: 8px 12px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; } .chatlog div { padding: 2px 0; }
+.livebar { padding: 12px 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--line); }
+.clip-grid { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); min-height: 0; overflow: hidden; }
+.clip-grid .vid { background: #000; display: grid; place-items: center; }
+.clip-grid video { width: 100%; max-height: calc(100vh - 120px); aspect-ratio: 9/16; background: #000; display: block; }
+.editor { padding: 16px 18px 22px; overflow: auto; display: grid; gap: 12px; align-content: start; max-height: calc(100vh - 110px); }
+label.f { display: grid; gap: 5px; font-size: 12px; color: var(--mute); font-weight: 700; }
+.box { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+.styles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sty { border: 2px solid var(--line); border-radius: 10px; padding: 12px 4px 8px; text-align: center; cursor: pointer; background: #0f0b16; color: #fff; text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; font-size: 19px; }
+.sty.on { border-color: var(--pink); background: #2a1424; }
+.sty span { display: block; font: 700 10px Montserrat, sans-serif; color: var(--mute); text-shadow: none; margin-top: 6px; }
+.transcript { font-size: 13px; color: #d8cfe6; line-height: 1.55; max-height: 150px; overflow: auto; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; } .kv b { color: var(--mute); font-weight: 700; }
+
+#scrim { position: fixed; inset: 0; background: #0008; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 70; }
+#drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(580px, 100vw); background: var(--panel); border-left: 1px solid var(--line); transform: translateX(100%); transition: transform .25s ease; z-index: 80; display: grid; grid-template-rows: auto auto 1fr; }
+body.drawer #drawer { transform: none; } body.drawer #scrim { opacity: 1; pointer-events: auto; }
+.dhead { display: flex; align-items: center; padding: 18px 20px 6px; } .dhead h2 { flex: 1; }
+.tabs { display: flex; gap: 6px; padding: 8px 20px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs button { background: transparent; color: var(--mute); padding: 8px 12px; } .tabs button.on { background: #2a2236; color: var(--text); }
+.dbody { overflow: auto; padding: 16px 20px 40px; display: grid; gap: 12px; align-content: start; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.check { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 13px; } .check input { width: auto; accent-color: var(--pink); }
+.srow { display: flex; align-items: center; gap: 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translate(-50%, 20px); background: #2a2236; border: 1px solid var(--line2); padding: 11px 16px; z-index: 99; border-radius: 12px; opacity: 0; transition: all .25s; pointer-events: none; font-weight: 700; max-width: calc(100vw - 32px); box-shadow: 0 10px 40px #0009; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 1100px) { .cols { grid-template-columns: 1fr; } .feed { position: static; max-height: 360px; } }
+@media (max-width: 860px) { .live-grid, .clip-grid { grid-template-columns: 1fr; } .chatbox { border-left: 0; border-top: 1px solid var(--line); max-height: 300px; }
+  .editor { max-height: none; } .sheet { overflow: auto; } .clip-grid { overflow: visible; } .clip-grid video { max-height: 60vh; } }
+@media (max-width: 560px) { header, main { padding-left: 16px; padding-right: 16px; } h1 { font-size: 22px; } .tiles { grid-template-columns: 1fr; }
+  .clips { grid-template-columns: repeat(2, 1fr); } .styles { grid-template-columns: repeat(2, 1fr); } .two { grid-template-columns: 1fr; }
+  .modal { padding: 0; } .sheet { border-radius: 0; max-height: 100vh; height: 100vh; } .filters input, .filters select { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><img class="mark" src="/logo.svg" alt=""><div><h1>GTA 6 CLIPPER</h1><div class="by">by Numan Hayder</div></div></div>
+  <div class="chips">
+    <span class="chip"><span class="dot" id="d-live"></span><b id="s-live">0</b>online</span>
+    <span class="chip"><span class="dot" id="d-rec"></span><b id="s-rec">0</b>recording</span>
+    <span class="chip">✂ <b id="s-clips">0</b>clips</span>
+    <span class="chip" id="s-llm">AI …</span>
+    <span class="chip" id="s-core" title="Rust core: fast live checks, segment timing, one chat socket">⚡ …</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="ghost" id="b-notify" onclick="toggleNotify()" title="Desktop alerts for new clips">🔕 Alerts off</button>
+  <button onclick="openDrawer()">⚙ Settings &amp; API keys</button>
+</header>
+
+<main>
+  <section>
+    <div class="shead"><h2>WHO'S ONLINE</h2><span class="small" id="roster-note"></span></div>
+    <div class="roster" id="roster"></div>
+  </section>
+  <section>
+    <div class="shead"><h2>LIVE NOW</h2><span class="small">previews refresh every 4 s · click a preview to watch with live chat</span></div>
+    <div class="tiles" id="tiles"></div>
+  </section>
+  <div class="cols">
+    <section>
+      <div class="shead"><h2>CLIPS</h2><span class="small" id="clip-note"></span></div>
+      <div class="filters">
+        <input id="f-q" placeholder="Search title, hashtag, words…" oninput="renderClips()">
+        <select id="f-s" onchange="renderClips()"><option value="">All streamers</option></select>
+        <div class="row wrap" id="f-t"></div>
+      </div>
+      <div class="clips" id="clips"></div>
+    </section>
+    <aside>
+      <div class="shead"><h2>ACTIVITY</h2></div>
+      <div class="feed" id="feed"></div>
+    </aside>
+  </div>
+</main>
+
+<div class="modal" id="m-live" onclick="if(event.target===this)closeLive()">
+  <div class="sheet">
+    <div class="mhead" id="live-head"></div>
+    <div class="live-grid">
+      <div>
+        <div class="player"><video id="live-video" muted autoplay playsinline controls></video><div class="note" id="live-note">connecting…</div></div>
+        <div class="livebar">
+          <span class="small" style="font-weight:800">✂ Clip the last</span>
+          <button class="sm" onclick="clipLive(15)">15s</button><button class="sm" onclick="clipLive(30)">30s</button>
+          <button class="sm" onclick="clipLive(60)">60s</button><button class="sm" onclick="clipLive(90)">90s</button>
+          <div class="spacer"></div>
+          <button class="ghost sm" onclick="const v=$('#live-video');v.muted=!v.muted;this.textContent=v.muted?'🔇 Unmute':'🔊 Mute'">🔇 Unmute</button>
+        </div>
+        <div style="padding:12px 16px 14px"><div class="small" style="font-weight:700;margin-bottom:4px">Chat activity (last 2 min)</div>
+          <svg class="spark" id="live-spark" viewBox="0 0 300 40" preserveAspectRatio="none"></svg>
+          <div class="events" id="live-events" style="max-height:90px;margin-top:8px"></div></div>
+      </div>
+      <div class="chatbox"><div class="mhead" style="padding:10px 12px"><b class="grow">Live chat</b><span class="small" id="live-rate"></span></div><div class="chatlog" id="chatlog"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="m-clip" onclick="if(event.target===this)closeClip()">
+  <div class="sheet"><div class="mhead" id="clip-head"></div><div class="clip-grid"><div class="vid" id="clip-vid"></div><div class="editor" id="clip-ed"></div></div></div>
+</div>
+
+<div id="scrim" onclick="closeDrawer()"></div>
+<aside id="drawer" aria-label="Settings">
+  <div class="dhead"><h2>SETTINGS</h2><button class="ghost" onclick="closeDrawer()">✕ Close</button></div>
+  <div class="tabs">
+    <button data-tab="keys" onclick="tab('keys')">🔑 API keys</button>
+    <button data-tab="streamers" onclick="tab('streamers')">📺 Streamers</button>
+    <button data-tab="clips" onclick="tab('clips')">🎬 Clips &amp; recording</button>
+  </div>
+  <div class="dbody" id="dbody"></div>
+</aside>
+<div id="toast" role="status"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const toast = m => { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 2600); };
+const LABEL = {stream_start: "🔴 Stream start", gta6_open: "🌴 First GTA 6", chat_spike: "💬 Chat peak", audio_spike: "🔊 Loud moment", ai_moment: "🤖 AI moment", manual: "✂ Manual"};
+const PROV = {groq: "Groq", openrouter: "OpenRouter", cerebras: "Cerebras", gemini: "Google Gemini", mistral: "Mistral"};
+const STY = {gta: ["Bebas", "#ff3ea5", "GTA"], bold: ["Anton", "#ffe500", "Bold"], mrbeast: ["Luckiest", "#39ff14", "MrBeast"], minimal: ["Montserrat", "#fff266", "Minimal"]};
+const STATUS_TXT = {transcribing: "Writing captions…", writing: "AI is writing the title…", rendering: "Rendering video…"};
+
+async function api(path, method = "POST", body) {
+  const r = await fetch(path, {method, headers: {"Content-Type": "application/json", "X-Clipper": "1"}, body: body ? JSON.stringify(body) : undefined});
+  const j = await r.json().catch(() => ({msg: "error " + r.status}));
+  if (j.msg) toast(j.msg);
+  return j;
+}
+const avatar = (key, name, cls = "", has = true) =>
+  `<div class="av ${cls}">${esc((name || "?").replace("@", "")[0].toUpperCase())}${has ? `<img src="/avatar/${esc(key)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>`;
+const since = s => s.live_since || s.online_since;
+const dur = t => { if (!t) return ""; const m = Math.floor((Date.now() / 1000 - t) / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+const ago = iso => { const s = (Date.now() - new Date(iso)) / 1000; return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)}m ago` : s < 86400 ? `${Math.floor(s / 3600)}h ago` : new Date(iso).toLocaleDateString(); };
+const hue = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+function sparkPath(vals, w = 300, h = 40) {
+  if (!vals || vals.length < 2) return `<text x="150" y="25" text-anchor="middle" fill="#6d6280" font-size="11">collecting chat data…</text>`;
+  const mx = Math.max(1, ...vals), step = w / (vals.length - 1);
+  const pts = vals.map((v, i) => `${(i * step).toFixed(1)},${(h - 3 - (v / mx) * (h - 8)).toFixed(1)}`);
+  return `<path d="M0,${h} L${pts.join(" L")} L${w},${h} Z" fill="#ff3ea522"/><polyline points="${pts.join(" ")}" fill="none" stroke="#ff3ea5" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+}
+
+/* ---------- status, roster, live tiles, activity ---------- */
+let ST = {streamers: [], llm: [], recording: 0}, TILES_HTML = "", PV = {};
+function refreshPreviews() {  // preload the newest frame off-screen, then swap: no flicker
+  for (const s of ST.streamers) {
+    if (!(s.recording && s.preview)) continue;
+    const url = `/preview/${s.key}.jpg?t=${Date.now()}`, im = new Image();
+    im.onload = () => { PV[s.key] = url; document.querySelectorAll(`img.pv[data-k="${s.key}"]`).forEach(x => x.src = url);
+      document.querySelectorAll(`.idle[data-k="${s.key}"]`).length && (TILES_HTML = "", status()); };
+    im.src = url;
+  }
+}
+async function status() {
+  try { ST = await (await fetch("/api/status")).json(); } catch (e) { return; }
+  const all = ST.streamers, online = all.filter(s => s.live), off = all.filter(s => !s.live);
+  $("#s-live").textContent = online.length; $("#d-live").className = "dot" + (online.length ? " live" : "");
+  $("#s-rec").textContent = ST.recording; $("#d-rec").className = "dot" + (ST.recording ? " live" : "");
+  $("#s-core").innerHTML = ST.core ? `<span class="dot ok"></span>Rust core` : `<span class="dot"></span>Python mode`;
+  $("#s-llm").innerHTML = ST.llm.length ? `<span class="dot ok"></span>AI: ${esc(ST.llm.join(" → "))}` : `<span class="dot"></span>AI: add a key in Settings`;
+  $("#roster-note").textContent = `${online.length} online · ${off.length} offline`;
+  const who = s => `<button class="who ${s.live ? "live" : ""} ${s.enabled ? "" : "dis"}" title="${esc(s.live ? s.title : s.status)}" onclick="${s.recording ? `openLive('${esc(s.key)}')` : s.live ? `document.getElementById('tile-${esc(s.key)}')?.scrollIntoView({behavior:'smooth',block:'center'})` : `openDrawer('streamers')`}">
+      <div class="ring ${s.live ? "live" : ""} ${s.recording ? "rec" : ""}">${avatar(s.key, s.name, s.live ? "" : "off", s.avatar)}</div>
+      <div class="n">${esc(s.name)}</div><div class="s">${s.live ? "● " + (dur(since(s)) || "live") : s.enabled ? "offline" : "paused"}</div></button>`;
+  $("#roster").innerHTML = all.length ? online.map(who).join("") + (online.length && off.length ? '<div class="divider"></div>' : "") + off.map(who).join("")
+    : '<div class="empty">No streamers yet. Add some in Settings → Streamers.</div>';
+  const lives = [...online].sort((a, b) => (b.recording - a.recording) || (b.gta - a.gta));
+  const tiles = lives.length ? lives.map(tileHTML).join("") : '<div class="empty">Nobody is live right now.<br>A tile with a live preview appears here the moment a streamer goes live.</div>';
+  if (tiles !== TILES_HTML) { TILES_HTML = tiles; $("#tiles").innerHTML = tiles; }
+  renderFeed();
+  if (LIVE) updateLiveHead();
+}
+function tileHTML(s) {
+  const k = esc(s.key);
+  const pv = s.recording && PV[s.key] ? `<img class="pv" data-k="${k}" src="${PV[s.key]}" alt="Live preview of ${esc(s.name)}">` : "";
+  const why = (s.status || "").replace(/^live ?/, "").replace(/[()]/g, "") || "starting…";
+  return `<div class="tile ${s.recording ? "rec" : ""}" id="tile-${k}">
+    <div class="screen" ${s.recording ? `onclick="openLive('${k}')"` : ""}>
+      ${pv || `<div class="idle" data-k="${k}">${avatar(s.key, s.name, "", s.avatar)}<div>${s.recording ? "Buffering preview…" : "Online, not recording<br><span class='small'>" + esc(why) + "</span>"}</div></div>`}
+      <div class="shade"></div>
+      <div class="tl">${s.recording ? '<span class="pill live">● REC</span>' : '<span class="pill">LIVE</span>'}<span class="pill">${dur(since(s)) || "0m"}</span>${s.gta ? '<span class="pill gta">GTA 6</span>' : ""}</div>
+      <div class="tr">${s.in_ad ? '<span class="pill ad">AD skipped</span>' : ""}${s.quality ? `<span class="pill">${esc(s.quality)}</span>` : ""}${s.backend ? `<span class="pill">${s.backend === "browser" ? "🌐 browser" : "streamlink"}</span>` : ""}</div>
+      ${s.recording ? '<div class="play"><span>▶</span></div>' : ""}
+      <div class="bl"><div class="ring live">${avatar(s.key, s.name, "", s.avatar)}</div><div class="grow"><div class="tname ell">${esc(s.name)}</div><div class="tcat ell">${esc(s.category || s.platform)} · ${esc(s.title)}</div></div></div>
+    </div>
+    <div class="tbody">
+      ${s.recording ? `<div class="row between small wrap"><span>💬 ${s.chat_rate}/s <span style="color:var(--dim)">normal ${s.chat_base}/s</span></span><span>${s.buffer_s}s buffer · ${s.mbps ? s.mbps + " Mb/s · " : ""}${s.clips} clips</span></div>
+      <svg class="spark" viewBox="0 0 300 40" preserveAspectRatio="none">${sparkPath(s.spark)}</svg>` : ""}
+      <div class="events">${s.events.slice(-3).reverse().map(esc).join("<br>") || "&nbsp;"}</div>
+      <div class="actions">${s.recording
+        ? `<button class="sm" onclick="openLive('${k}')">▶ Watch + chat</button><button class="sm ghost" onclick="clipNow('${k}',30)">✂ 30s</button><button class="sm ghost" onclick="clipNow('${k}',60)">✂ 60s</button>
+           <div class="spacer"></div><button class="sm danger" title="Stop recording until this stream ends" onclick="api('/api/stoprec/${k}').then(status)">■ Stop</button>`
+        : `<button class="sm" onclick="api('/api/record/${k}').then(status)">⏺ Record anyway</button><a class="small" href="${esc(s.url)}" target="_blank" rel="noopener">open ↗</a>`}</div>
+    </div></div>`;
+}
+async function clipNow(key, seconds) { await api(`/api/clip/${key}`, "POST", seconds ? {seconds} : undefined); }
+function renderFeed() {
+  const items = [];
+  for (const s of ST.streamers) for (const e of s.events) items.push({s, t: e.slice(0, 8), m: e.slice(9)});
+  items.sort((a, b) => b.t.localeCompare(a.t));
+  $("#feed").innerHTML = items.length ? items.slice(0, 60).map(i => `<div class="fi">${avatar(i.s.key, i.s.name, "", i.s.avatar)}<div class="grow"><b>${esc(i.s.name)}</b> ${esc(i.m)}<br><time>${esc(i.t)}</time></div></div>`).join("")
+    : '<div class="fi mute">Waiting for streams… “went live”, chat peaks, GTA 6 launches and new clips show up here.</div>';
+}
+
+/* ---------- clips ---------- */
+let CLIPS = [], KNOWN = null, FT = "", NOTIFY = false, lastSig = "";
+try { NOTIFY = localStorage.getItem("notify") === "1" && Notification.permission === "granted"; } catch (e) {}
+const setNotifyBtn = () => $("#b-notify").textContent = NOTIFY ? "🔔 Alerts on" : "🔕 Alerts off";
+async function toggleNotify() {
+  if (!NOTIFY && "Notification" in window) NOTIFY = (await Notification.requestPermission()) === "granted"; else NOTIFY = false;
+  try { localStorage.setItem("notify", NOTIFY ? "1" : "0"); } catch (e) {}
+  setNotifyBtn(); toast(NOTIFY ? "Desktop alert for every new clip: on" : "Alerts off");
+}
+async function loadClips() {
+  let d; try { d = await (await fetch("/api/clips")).json(); } catch (e) { return; }
+  const isNew = new Set(CLIPS.filter(c => c._new).map(c => c.dir));
+  const done = d.filter(c => c.status === "done");
+  if (KNOWN) for (const c of done) if (!KNOWN.has(c.dir)) {
+    toast(`✂ New clip: ${c.title || c.streamer}`); isNew.add(c.dir);
+    if (NOTIFY) try { new Notification("New GTA 6 clip · " + c.streamer, {body: c.title || "", icon: `/avatar/${c.streamer.toLowerCase()}`}); } catch (e) {}
+  }
+  KNOWN = new Set(done.map(c => c.dir));
+  d.forEach(c => c._new = isNew.has(c.dir));
+  CLIPS = d;
+  $("#s-clips").textContent = done.length;
+  document.title = (d.some(c => c._new) ? "● " : "") + "GTA 6 Clipper";
+  const sig = JSON.stringify(d.map(c => [c.dir, c.status, c.title, c.rendered, c._new]));
+  if (sig === lastSig) return; lastSig = sig;
+  const names = [...new Set(d.map(c => c.streamer))].sort(), cur = $("#f-s").value;
+  $("#f-s").innerHTML = '<option value="">All streamers</option>' + names.map(n => `<option ${n === cur ? "selected" : ""}>${esc(n)}</option>`).join("");
+  renderClips();
+  if (OPEN_CLIP) { const c = CLIPS.find(x => x.dir === OPEN_CLIP); if (c && (c.status !== OPEN_STATUS || c.rendered !== OPEN_V)) openClip(c.dir, true); }
+}
+function renderClips() {
+  const counts = {}; CLIPS.forEach(c => counts[c.trigger] = (counts[c.trigger] || 0) + 1);
+  $("#f-t").innerHTML = [["", "All", CLIPS.length], ...Object.keys(LABEL).filter(k => counts[k]).map(k => [k, LABEL[k], counts[k]])]
+    .map(([k, l, n]) => `<button class="fchip ${FT === k ? "on" : ""}" onclick="FT='${k}';renderClips()">${l} <span class="mute">${n}</span></button>`).join("");
+  const q = $("#f-q").value.toLowerCase().trim(), s = $("#f-s").value;
+  const list = CLIPS.filter(c => (!FT || c.trigger === FT) && (!s || c.streamer === s) &&
+    (!q || [c.title, c.caption, c.transcript, c.streamer, (c.hashtags || []).join(" ")].join(" ").toLowerCase().includes(q)));
+  $("#clip-note").textContent = CLIPS.length ? `${list.length} of ${CLIPS.length} · hover to preview, click to edit` : "";
+  if (!CLIPS.length) { $("#clips").innerHTML = '<div class="empty">No clips yet. They land here a minute or two after a moment happens on a live stream.<br>Tip: open a live tile and press ✂ to clip by hand.</div>'; return; }
+  if (!list.length) { $("#clips").innerHTML = '<div class="empty">No clips match these filters.</div>'; return; }
+  $("#clips").innerHTML = list.map(c => {
+    const main = c.outputs && (c.outputs.vertical || Object.values(c.outputs)[0]);
+    const ready = c.status === "done" && main, v = c.rendered || 0, dir = esc(c.dir);
+    return `<div class="clip ${c._new ? "new" : ""}" onclick="openClip('${dir}')" ${ready ? `onmouseenter="hoverPlay(this,'/files/${dir}/${esc(main)}?v=${v}')" onmouseleave="hoverStop(this)"` : ""}>
+      <div class="cv">${ready ? `<img src="/files/${dir}/thumb.jpg?v=${v}" alt="" loading="lazy">`
+        : c.status === "error" ? `<div class="proc">⚠<div>${esc(c.error || "failed")}</div></div>`
+        : `<div class="proc"><div class="spin"></div><div>${esc(STATUS_TXT[c.status] || "Cutting clip…")}</div></div>`}
+        <div class="badges"><span class="pill">${esc(LABEL[c.trigger] || c.trigger)}</span>${c.duration ? `<span class="pill">${Math.round(c.duration)}s</span>` : ""}</div></div>
+      <div class="cb"><div class="t">${esc(c.title || c.reason || "")}</div>
+        <div class="row small">${avatar(c.streamer.toLowerCase(), c.streamer)}<span class="ell grow">${esc(c.streamer)}</span><span>${c.started ? ago(c.started) : ""}</span>
+          <button class="del" title="Delete clip" aria-label="Delete clip" onclick="event.stopPropagation(); quickDelete('${dir}', this)">🗑</button></div></div></div>`;
+  }).join("");
+}
+async function quickDelete(dir, btn) {
+  if (!confirm("Delete this clip and all its files?")) return;
+  btn.disabled = true;
+  const j = await api(`/api/clips/${dir}`, "DELETE");
+  if (j.ok) { btn.closest(".clip").remove(); lastSig = ""; loadClips(); } else { btn.disabled = false; alert(j.error || "Could not delete"); }
+}
+function hoverPlay(el, src) { const cv = el.querySelector(".cv"); if (cv.querySelector("video")) return;
+  const v = document.createElement("video"); Object.assign(v, {src, muted: true, loop: true, playsInline: true, autoplay: true}); cv.prepend(v); }
+function hoverStop(el) { el.querySelector(".cv video")?.remove(); }
+
+/* ---------- clip editor ---------- */
+let OPEN_CLIP = null, OPEN_STATUS = "", OPEN_V = 0, EDIT_STYLE = null;
+function openClip(dir, refresh) {
+  const c = CLIPS.find(x => x.dir === dir); if (!c) return;
+  if (!refresh && c._new) { c._new = false; lastSig = ""; }
+  OPEN_CLIP = dir; OPEN_STATUS = c.status; OPEN_V = c.rendered; if (!refresh) EDIT_STYLE = c.style || "gta";
+  const ready = c.status === "done" && c.outputs, main = ready && (c.outputs.vertical || Object.values(c.outputs)[0]), v = c.rendered || 0, d = esc(c.dir);
+  $("#clip-head").innerHTML = `${avatar(c.streamer.toLowerCase(), c.streamer)}<div class="grow"><b>${esc(c.streamer)}</b> <span class="small">· ${esc(LABEL[c.trigger] || c.trigger)} · ${c.started ? esc(new Date(c.started).toLocaleString()) : ""}</span></div><button class="ghost sm" onclick="closeClip()">✕</button>`;
+  $("#clip-vid").innerHTML = ready ? `<video src="/files/${d}/${esc(main)}?v=${v}" controls autoplay playsinline></video>`
+    : `<div style="aspect-ratio:9/16;width:100%;display:grid;place-items:center;color:var(--mute);font-weight:700;text-align:center"><div><div class="spin"></div><p>${esc(STATUS_TXT[c.status] || c.status)}</p></div></div>`;
+  if (refresh && document.activeElement && $("#clip-ed").contains(document.activeElement)) return;  // don't wipe what you're typing
+  const post = `${c.title || ""}\n\n${c.caption || ""}\n\n${(c.hashtags || []).join(" ")}`;
+  $("#clip-ed").innerHTML = `
+    <label class="f">Title<input id="e-title" value="${esc(c.title)}" maxlength="120"></label>
+    <label class="f">On-screen hook (top of the video, first seconds)<input id="e-hook" value="${esc(c.hook)}" maxlength="60"></label>
+    <label class="f">Caption<textarea id="e-cap" rows="2">${esc(c.caption)}</textarea></label>
+    <label class="f">Hashtags<textarea id="e-tags" rows="2">${esc((c.hashtags || []).join(" "))}</textarea></label>
+    <div class="actions"><button onclick="saveClip()">💾 Save text</button>
+      <button class="ghost" data-post="${esc(post)}" onclick="navigator.clipboard.writeText(this.dataset.post).then(()=>toast('Title + caption + hashtags copied'))">📋 Copy post</button>
+      ${ready ? Object.entries(c.outputs).map(([k, f]) => `<a class="small" href="/files/${d}/${esc(f)}" download>⬇ ${esc(k)}</a>`).join(" ") + ` <a class="small" href="/files/${d}/raw.mp4" download>⬇ raw</a>` : ""}</div>
+    <div class="box"><b>Caption design</b><div class="styles" id="e-styles">${styleCards(EDIT_STYLE, "pickStyle")}</div>
+      <div class="actions"><button onclick="rerenderClip()" ${ready || c.status === "error" ? "" : "disabled"}>🎬 Re-render with this style + hook</button><span class="small">about 30 s, keeps the captions</span></div></div>
+    <div class="box"><b>Why it was clipped</b><div class="kv"><b>Trigger</b><span>${esc(LABEL[c.trigger] || c.trigger)}</span><b>Reason</b><span>${esc(c.reason || "")}</span>
+      <b>Length</b><span>${c.duration ? c.duration + " s" : "—"}</span>${c.score != null ? `<b>AI viral score</b><span>${esc(c.score)}/10</span>` : ""}
+      <b>Game</b><span>${esc(c.category || "—")}</span><b>Stream title</b><span>${esc(c.title_stream || "")}</span></div></div>
+    <div class="box"><b>Transcript</b><div class="transcript">${esc(c.transcript || "(no speech detected)")}</div></div>
+    ${(c.chat || []).length ? `<div class="box"><b>Chat during the clip</b><div class="transcript" style="font-size:12px">${c.chat.map(l => { const i = l.indexOf(": ");
+        return `<div><b style="color:hsl(${hue(l.slice(0, i))} 80% 70%)">${esc(l.slice(0, i))}</b>${esc(l.slice(i))}</div>`; }).join("")}</div></div>` : ""}
+    <div class="actions"><div class="spacer"></div><button class="danger sm" onclick="deleteClip()">🗑 Delete clip</button></div>`;
+  $("#m-clip").classList.add("show");
+}
+const styleCards = (on, fn) => Object.entries(STY).map(([k, [f, col, lab]]) =>
+  `<div class="sty ${on === k ? "on" : ""}" style="font-family:${f}" role="button" tabindex="0" onclick="${fn}('${k}')">${k === "minimal" ? "watch" : "WATCH"} <b style="color:${col}">${k === "minimal" ? "this" : "THIS"}</b><span>${lab}</span></div>`).join("");
+function pickStyle(k) { EDIT_STYLE = k; $("#e-styles").innerHTML = styleCards(k, "pickStyle"); }
+const editBody = () => ({title: $("#e-title").value, hook: $("#e-hook").value, caption: $("#e-cap").value, hashtags: $("#e-tags").value.split(/[\s,]+/).filter(Boolean)});
+async function saveClip() { const j = await api(`/api/clips/${OPEN_CLIP}/meta`, "POST", editBody()); if (j.ok) { lastSig = ""; loadClips(); } }
+async function rerenderClip() { const j = await api(`/api/clips/${OPEN_CLIP}/rerender`, "POST", {...editBody(), style: EDIT_STYLE}); if (j.ok) { document.activeElement.blur(); lastSig = ""; setTimeout(loadClips, 800); } }
+async function deleteClip() { if (!confirm("Delete this clip and all its files?")) return; const j = await api(`/api/clips/${OPEN_CLIP}`, "DELETE"); if (j.ok) { closeClip(); lastSig = ""; loadClips(); } }
+function closeClip() { $("#m-clip").classList.remove("show"); $("#clip-vid").innerHTML = ""; OPEN_CLIP = null; }
+
+/* ---------- live player + chat ---------- */
+let LIVE = null, HLS = null, CHAT_T = 0, CHAT_TIMER = null;
+const loadHls = () => window.Hls ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+async function openLive(key) {
+  if (LIVE) closeLive();
+  LIVE = key; CHAT_T = 0; $("#chatlog").innerHTML = '<div class="mute">waiting for chat…</div>';
+  const note = $("#live-note"); note.textContent = "connecting…"; note.style.display = "";
+  updateLiveHead(); $("#m-live").classList.add("show");
+  const v = $("#live-video"), src = `/live/${key}/index.m3u8`;
+  try { await loadHls(); } catch (e) {}
+  if (LIVE !== key) return;
+  if (window.Hls && Hls.isSupported()) {
+    HLS = new Hls({liveSyncDurationCount: 2, manifestLoadingRetryDelay: 1500, manifestLoadingMaxRetry: 20});
+    HLS.loadSource(src); HLS.attachMedia(v);
+    HLS.on(Hls.Events.MANIFEST_PARSED, () => { v.play().catch(() => {}); note.style.display = "none"; });
+    HLS.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) { note.style.display = ""; note.textContent = "buffering, retrying…";
+      setTimeout(() => { if (LIVE === key && HLS) { HLS.recoverMediaError(); HLS.loadSource(src); } }, 3000); } });
+  } else if (v.canPlayType("application/vnd.apple.mpegurl")) { v.src = src; note.style.display = "none"; }
+  else note.textContent = "The live player needs internet once (hls.js). Previews and chat still work.";
+  pollChat(); CHAT_TIMER = setInterval(pollChat, 1500);
+}
+function updateLiveHead() {
+  const s = ST.streamers.find(x => x.key === LIVE); if (!s) return;
+  $("#live-head").innerHTML = `<div class="ring live ${s.recording ? "rec" : ""}">${avatar(s.key, s.name, "", s.avatar)}</div>
+    <div class="grow"><div class="row wrap" style="gap:6px"><b style="font-size:16px">${esc(s.name)}</b>${s.recording ? '<span class="pill live">● REC</span>' : '<span class="pill soft">not recording</span>'}${s.gta ? '<span class="pill gta">GTA 6</span>' : ""}${s.in_ad ? '<span class="pill ad">AD skipped</span>' : ""}<span class="pill soft">${dur(since(s))}</span></div>
+    <div class="small ell">${esc(s.category)} · ${esc(s.title)}</div></div><a class="small" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.platform)} ↗</a><button class="ghost sm" onclick="closeLive()">✕</button>`;
+  $("#live-spark").innerHTML = sparkPath(s.spark);
+  $("#live-events").innerHTML = s.events.slice().reverse().map(esc).join("<br>");
+}
+async function pollChat() {
+  const key = LIVE; if (!key) return;
+  let d; try { d = await (await fetch(`/api/chat/${key}?since=${CHAT_T}`)).json(); } catch (e) { return; }
+  if (key !== LIVE) return;
+  $("#live-rate").textContent = `${(d.rate || 0).toFixed(1)} msgs/s`;
+  if (!d.msgs.length) return;
+  const log = $("#chatlog"); if (!CHAT_T) log.innerHTML = "";
+  CHAT_T = d.msgs[d.msgs.length - 1].t;
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+  log.insertAdjacentHTML("beforeend", d.msgs.map(m => `<div><b style="color:hsl(${hue(m.u)} 80% 70%)">${esc(m.u)}</b>: ${esc(m.m)}</div>`).join(""));
+  while (log.children.length > 250) log.firstChild.remove();
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+async function clipLive(sec) { if (LIVE) await clipNow(LIVE, sec); }
+function closeLive() { $("#m-live").classList.remove("show"); clearInterval(CHAT_TIMER); LIVE = null;
+  if (HLS) { HLS.destroy(); HLS = null; } const v = $("#live-video"); v.removeAttribute("src"); v.load(); }
+
+/* ---------- settings drawer ---------- */
+let SET = null, TAB = "keys";
+async function openDrawer(t) { document.body.classList.add("drawer"); await loadSettings(); tab(t || TAB); }
+function closeDrawer() { document.body.classList.remove("drawer"); }
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); if (LIVE) closeLive(); if (OPEN_CLIP) closeClip(); } });
+async function loadSettings() { SET = await (await fetch("/api/settings")).json(); }
+function tab(t) { TAB = t; document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t)); $("#dbody").innerHTML = {keys: keysTab, streamers: streamersTab, clips: clipsTab}[t](); }
+async function refreshTab() { await loadSettings(); tab(TAB); }
+
+function keysTab() {
+  return `<div class="small">Keys are saved to <b>.env</b> on this computer only and work right away, no restart. Clips use the first provider that works, top to bottom. A Groq key also turns on fast cloud Whisper captions.</div>` +
+    SET.providers.map(p => `<div class="box">
+      <div class="row between"><b>${esc(PROV[p.id] || p.id)}</b><span class="pill ${p.has_key ? "ok" : "soft"}">${p.has_key ? "✔ key " + esc(p.masked) : "no key"}</span></div>
+      <div class="two"><label class="f">API key<input type="password" id="k-${p.id}" placeholder="${p.has_key ? "paste to replace" : "paste key"}" autocomplete="off"></label><label class="f">Model<input id="m-${p.id}" value="${esc(p.model)}"></label></div>
+      <div class="actions"><button class="sm" onclick="saveKey('${p.id}')">Save</button><button class="ghost sm" onclick="api('/api/test/${p.id}')">Test</button>
+        ${p.has_key ? `<button class="danger sm" onclick="removeKey('${p.id}')">Remove</button>` : ""}<a class="small" href="${esc(p.get_key)}" target="_blank" rel="noopener">Get a free key ↗</a></div></div>`).join("");
+}
+async function saveKey(id) {
+  const key = $("#k-" + id).value.trim(), model = $("#m-" + id).value.trim(), body = {provider: id, model};
+  if (key) body.key = key;
+  const j = await api("/api/keys", "POST", body);
+  if (j.ok && key) await api("/api/test/" + id);
+  refreshTab(); status();
+}
+async function removeKey(id) { if (confirm(`Remove the ${PROV[id]} key?`)) { await api("/api/keys", "POST", {provider: id, key: ""}); refreshTab(); status(); } }
+
+function streamersTab() {
+  const st = Object.fromEntries(ST.streamers.map(s => [s.key, s]));
+  return `<div class="box"><b>Add a streamer</b>
+      <div class="row"><select id="add-plat" style="width:130px"><option value="twitch">Twitch</option><option value="youtube">YouTube</option></select>
+        <input id="add-name" placeholder="xqc  ·  @IShowSpeed  ·  channel link" onkeydown="if(event.key==='Enter')addStreamer()"></div>
+      <button onclick="addStreamer()">+ Add &amp; start watching</button></div>
+    <div style="display:grid;gap:8px">${SET.streamers.map(s => { const w = st[s.key] || {};
+      return `<div class="srow"><div class="ring ${w.live ? "live" : ""}">${avatar(s.key, s.name, w.live ? "" : "off", w.avatar)}</div>
+        <div class="grow"><b>${esc(s.name.replace("@", ""))}</b><div class="small">${esc(s.platform)} · ${w.recording ? "recording" : w.live ? "online" : s.enabled ? "offline" : "paused"}</div></div>
+        <button class="ghost sm" onclick="toggleStreamer('${esc(s.key)}')">${s.enabled ? "Pause" : "Enable"}</button>
+        <button class="danger sm" onclick="removeStreamer('${esc(s.key)}','${esc(s.name)}')">Remove</button></div>`; }).join("")}</div>`;
+}
+async function addStreamer() {
+  const name = $("#add-name").value.trim().replace(/\/(live|videos|featured|streams)\/?$/i, ""); if (!name) return;
+  const plat = /youtube\.com|^@/i.test(name) ? "youtube" : /twitch\.tv/i.test(name) ? "twitch" : $("#add-plat").value;
+  const j = await api("/api/streamers", "POST", {platform: plat, name});
+  if (j.ok) setTimeout(() => { refreshTab(); status(); }, 400);
+}
+async function toggleStreamer(k) { await api(`/api/streamers/${k}/toggle`); refreshTab(); status(); }
+async function removeStreamer(k, n) { if (confirm(`Stop watching ${n}?`)) { await api(`/api/streamers/${k}`, "DELETE"); refreshTab(); status(); } }
+
+function clipsTab() {
+  const s = SET.settings, c = SET.choices;
+  const sel = (sec, k, labels = {}) => `<select onchange="setOpt('${sec}','${k}',this.value)">${c[sec][k].map(v => `<option value="${esc(v)}" ${s[sec][k] === v ? "selected" : ""}>${esc(labels[v] || v)}</option>`).join("")}</select>`;
+  const num = (sec, k, step = 1) => `<input type="number" step="${step}" value="${esc(s[sec][k])}" onchange="setOpt('${sec}','${k}',this.value)">`;
+  const fmts = s.edit.formats || [];
+  return `<div class="box"><b>Default caption design</b><div class="styles">${styleCards(s.edit.caption_style, "setStyle")}</div>
+      <div class="two"><label class="f">Words per caption${num("edit", "words_per_caption")}</label><label class="f">Gameplay zoom (vertical)${num("edit", "vertical_zoom", 0.05)}</label></div>
+      <div class="row wrap"><label class="check"><input type="checkbox" ${fmts.includes("vertical") ? "checked" : ""} onchange="setFormat('vertical',this.checked)">9:16 vertical</label>
+        <label class="check"><input type="checkbox" ${fmts.includes("landscape") ? "checked" : ""} onchange="setFormat('landscape',this.checked)">16:9 landscape</label></div></div>
+    <div class="box"><b>Recording</b><div class="two">
+      <label class="f">Record with${sel("general", "recorder", {browser: "Headless browser (Chrome)", streamlink: "Streamlink"})}</label>
+      <label class="f">Quality${sel("general", "quality", {"1080p60,best": "1080p60", "720p60,720p,best": "720p60", "480p,best": "480p (saves data)", best: "Best available"})}</label>
+      <label class="f">Record${sel("general", "record_mode", {always: "Any live stream", gta_only: "Only while playing GTA"})}</label>
+      <label class="f">Max streams at once${num("general", "max_recordings")}</label></div>
+      <div class="small">Recorder and quality changes apply to the next recording that starts. YouTube always uses streamlink (its web player has no HLS).</div></div>
+    <div class="box"><b>AI moment finder</b>
+      <label class="check"><input type="checkbox" ${s.llm.ai_scan ? "checked" : ""} onchange="setOpt('llm','ai_scan',this.checked)">Let AI watch transcript + chat for clip-worthy moments</label>
+      <div class="two"><label class="f">Clip when AI score ≥ (0-10)${num("llm", "ai_min_score")}</label><label class="f">Check every (seconds)${num("llm", "scan_seconds")}</label></div></div>
+    <div class="box"><b>Whisper captions</b><div class="two">
+      <label class="f">Engine${sel("whisper", "backend", {auto: "Auto (Groq if key, else local)", groq: "Groq API", local: "Local (free, offline)"})}</label>
+      <label class="f">Local model size${sel("whisper", "local_model")}</label></div>
+      <label class="f">Language (blank = auto)<input value="${esc(s.whisper.language || "")}" placeholder="en" onchange="setOpt('whisper','language',this.value)"></label></div>
+    <div class="box"><b>Moment detection</b><div class="two">
+      <label class="f">Chat spike (× normal)${num("detect", "chat_spike_ratio", 0.5)}</label><label class="f">Loudness jump (dB)${num("detect", "audio_spike_db", 0.5)}</label>
+      <label class="f">Cooldown between clips (s)${num("detect", "cooldown_seconds")}</label><label class="f">Stream-start clip length (s)${num("detect", "first_moment_seconds")}</label></div></div>`;
+}
+async function setOpt(sec, k, v) { await api("/api/settings", "POST", {[sec]: {[k]: v}}); refreshTab(); }
+function setStyle(k) { setOpt("edit", "caption_style", k); }
+async function setFormat(f, on) { const fm = new Set(SET.settings.edit.formats || []); on ? fm.add(f) : fm.delete(f); await setOpt("edit", "formats", [...fm]); }
+
+setNotifyBtn(); status().then(refreshPreviews); loadClips(); setInterval(status, 2000); setInterval(loadClips, 3000); setInterval(refreshPreviews, 4000);
+</script>
+</body>
+</html>

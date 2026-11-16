@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GTA 6 Clipper</title>
+<meta name="description" content="Clipper by Numan Hayder for GTA 6: records Twitch and YouTube streams live and turns the best moments into captioned vertical clips in minutes.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0911; --panel: #15111c; --line: #2a2236; --text: #f4eefb; --mute: #9d90b0;
+  --pink: #ff3ea5; --orange: #ff8a3d; --sun: #ffd23d; --live: #ff2d55;
+  --grad: linear-gradient(90deg, var(--pink), var(--orange));
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 Montserrat, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--orange); }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+.hero { position: relative; overflow: hidden; padding: 72px 0 96px; text-align: center;
+  background: radial-gradient(70% 60% at 50% 0%, #3a1240 0%, transparent 70%); }
+.sun { position: absolute; left: 50%; bottom: -300px; width: 560px; height: 560px; transform: translateX(-50%); border-radius: 50%;
+  background: linear-gradient(180deg, var(--sun), var(--orange) 45%, var(--pink));
+  -webkit-mask: repeating-linear-gradient(180deg, #000 0 26px, transparent 26px 34px); mask: repeating-linear-gradient(180deg, #000 0 26px, transparent 26px 34px);
+  opacity: .16; pointer-events: none; }
+.hero img { width: 112px; height: 112px; filter: drop-shadow(0 12px 40px #ff3ea566); }
+h1 { font: 400 clamp(44px, 9vw, 96px)/.95 Anton, Impact, sans-serif; margin: 22px 0 8px; letter-spacing: 1px;
+  background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.by { font-weight: 800; letter-spacing: 4px; text-transform: uppercase; font-size: 12px; color: var(--mute); }
+.lede { max-width: 620px; margin: 22px auto 30px; font-size: 18px; color: #ddd3ea; position: relative; }
+.cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; position: relative; }
+.btn { display: inline-block; padding: 13px 22px; border-radius: 12px; font-weight: 800; text-decoration: none; color: #fff; background: var(--grad); box-shadow: 0 10px 30px #ff3ea544; }
+.btn.ghost { background: #241d2f; box-shadow: none; }
+.btn:focus-visible { outline: 2px solid var(--sun); outline-offset: 3px; }
+
+pre { background: #0f0b16; border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; overflow-x: auto; font: 14px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: #e9e0f5; text-align: left; }
+pre .c { color: #6d6280; }
+
+section { padding: 64px 0; border-top: 1px solid #ffffff0a; }
+h2 { font: 400 36px/1 Anton, Impact, sans-serif; letter-spacing: .5px; margin: 0 0 8px; }
+.sub { color: var(--mute); margin: 0 0 28px; }
+
+.shot { display: block; width: 100%; border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 30px 80px #000a; margin-top: -40px; position: relative; }
+
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+.card .i { font-size: 26px; }
+.card h3 { margin: 8px 0 4px; font-size: 16px; }
+.card p { margin: 0; color: var(--mute); font-size: 14px; }
+
+.speed { display: grid; gap: 12px; }
+.bar { display: grid; grid-template-columns: 210px 1fr; gap: 14px; align-items: center; }
+.bar b { font-size: 14px; }
+.track { display: grid; gap: 6px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--mute); }
+.fill { height: 10px; border-radius: 99px; background: #3a3049; flex: none; }
+.fill.r { background: var(--grad); }
+
+footer { padding: 40px 0 60px; color: var(--mute); font-size: 14px; text-align: center; }
+@media (max-width: 640px) {
+  .bar { grid-template-columns: 1fr; gap: 6px; }
+  .hero { padding: 48px 0 80px; }
+  .sun { width: 380px; height: 380px; bottom: -140px; }
+}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="sun" aria-hidden="true"></div>
+  <div class="wrap">
+    <img src="logo.svg" alt="GTA 6 Clipper logo">
+    <h1>GTA 6 CLIPPER</h1>
+    <div class="by">Clipper by Numan Hayder</div>
+    <p class="lede">Watches 36 Twitch and YouTube streamers, records them while they are live, and turns every scream, chat explosion and first step into Leonida into a captioned vertical clip within minutes.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/byte4day/gta6-clipper">Get it on GitHub</a>
+      <a class="btn ghost" href="#start">Quick start</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <img class="shot" src="dashboard.png" alt="The dashboard: who's online, live previews, clips and an activity feed" onerror="this.remove()">
+
+  <section>
+    <h2>What gets clipped</h2>
+    <p class="sub">Six triggers, running for every live stream at once.</p>
+    <div class="grid">
+      <div class="card"><div class="i">🔴</div><h3>Stream start</h3><p>The first 75 seconds after a streamer goes live.</p></div>
+      <div class="card"><div class="i">🌴</div><h3>First time in GTA 6</h3><p>The moment the category flips to GTA VI, once per streamer, forever.</p></div>
+      <div class="card"><div class="i">💬</div><h3>Chat peak</h3><p>Chat runs 3× faster than normal, or floods with "clip it", KEKW and W.</p></div>
+      <div class="card"><div class="i">🔊</div><h3>Loud moment</h3><p>A 12 dB jump above the running loudness: screams, hype, chaos.</p></div>
+      <div class="card"><div class="i">🤖</div><h3>AI moment</h3><p>An LLM scores the last 30 s of speech and chat every 40 s.</p></div>
+      <div class="card"><div class="i">✂</div><h3>Manual</h3><p>One click: clip the last 15, 30, 60 or 90 seconds.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Rust where it counts</h2>
+    <p class="sub">A small native core, <code>gtacore</code>, handles the jobs that run all day. Everything still works in pure Python without it.</p>
+    <div class="speed">
+      <div class="bar"><b>Live check, 36 streamers</b><div class="track">
+        <div class="row"><span class="fill" style="width:70%"></span>36 streamlink processes</div>
+        <div class="row"><span class="fill r" style="width:6%"></span>1 parallel pass, ~1 s</div></div></div>
+      <div class="bar"><b>Segment timing</b><div class="track">
+        <div class="row"><span class="fill" style="width:70%"></span>ffprobe, ~130 ms</div>
+        <div class="row"><span class="fill r" style="width:3%"></span>PTS parse, ~5 ms</div></div></div>
+      <div class="bar"><b>Twitch chat sockets</b><div class="track">
+        <div class="row"><span class="fill" style="width:70%"></span>one per channel</div>
+        <div class="row"><span class="fill r" style="width:2%"></span>one for all</div></div></div>
+    </div>
+  </section>
+
+  <section id="start">
+    <h2>Quick start</h2>
+    <p class="sub">Linux or macOS with Python 3.12, uv and ffmpeg. Rust is optional.</p>
+<pre><span class="c"># clone and run: the first run installs everything</span>
+git clone https://github.com/byte4day/gta6-clipper && cd gta6-clipper
+./gtaclip-run run
+
+<span class="c"># dashboard</span>
+open http://127.0.0.1:8787</pre>
+    <p class="sub" style="margin-top:16px">Add a free Groq key in ⚙ Settings for AI titles, AI moments and fast transcription.</p>
+  </section>
+</main>
+
+<footer>Made by Numan Hayder · MIT license · Not affiliated with Rockstar Games, Twitch or YouTube.</footer>
+</body>
+</html>

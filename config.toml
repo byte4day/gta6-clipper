@@ -1,0 +1,216 @@
+# GTA 6 Clipper config. Edit, then run: ./gtaclip-run run
+# API keys go in .env (see .env.example), never in this file.
+
+[general]
+output_dir = "clips"          # finished clips land in clips/<streamer>/<time>_<trigger>/
+buffer_dir = "buffer"         # rolling live recording (auto-deleted)
+buffer_minutes = 6            # how much live video is kept to cut clips from
+segment_seconds = 4           # buffer chunk size
+poll_seconds = 45             # how often offline streamers are fully probed (streamlink)
+live_check_seconds = 20       # fast Rust page check of every streamer (needs core/ built)
+quality = "720p60,720p,best"  # stream quality order (first available wins)
+recorder = "browser"          # browser = headless Chrome captures the stream (Twitch; YouTube auto-falls back) | streamlink
+max_recordings = 6            # max streams recorded at once (bandwidth/disk guard)
+record_mode = "always"        # "always" = record any live stream, "gta_only" = only while category/title is GTA
+clip_workers = 2              # clips edited in parallel
+dashboard_port = 8787
+
+[edit]
+caption_style = "gta"         # gta | bold | mrbeast | minimal
+formats = ["vertical"]        # vertical (9:16 TikTok/Shorts/Reels) and/or landscape (16:9)
+vertical_zoom = 1.0           # >1 zooms gameplay in the 9:16 frame (can crop the facecam)
+words_per_caption = 3
+hook_seconds = 3.5            # how long the AI hook text stays on top
+progress_bar = true
+loudnorm = true
+
+[whisper]
+# "auto" = Groq Whisper API if GROQ_API_KEY is set, else local faster-whisper (free, offline)
+backend = "auto"
+groq_model = "whisper-large-v3-turbo"
+local_model = "small"         # tiny | base | small | medium | large-v3
+language = ""                 # "" = auto-detect, or "en"
+
+[llm]
+# Tried in order; providers without a key in .env are skipped. All have free tiers.
+providers = ["groq", "openrouter", "cerebras", "gemini", "mistral"]
+ai_scan = true                # every scan_seconds: transcribe last 30s + chat, ask the LLM "is this clip-worthy?"
+scan_seconds = 40
+ai_min_score = 8              # 0-10, clip when the LLM scores >= this
+
+[llm.models]
+groq = "llama-3.3-70b-versatile"
+openrouter = "meta-llama/llama-3.3-70b-instruct:free"
+cerebras = "llama-3.3-70b"
+gemini = "gemini-2.5-flash"
+mistral = "mistral-small-latest"
+
+[detect]
+cooldown_seconds = 45         # min gap between auto clips of one streamer
+first_moment_seconds = 75     # length of the "stream just started" clip
+gta6_open_seconds = 90        # length of the "first time opening GTA 6" clip
+gta_pattern = "grand theft auto vi|grand theft auto 6|gta ?vi\\b|gta ?6"
+chat_spike_ratio = 3.0        # chat msgs/sec vs normal baseline
+chat_spike_min_rate = 4.0     # ignore spikes slower than this (msgs/sec)
+audio_spike_db = 12.0        # loudness jump above the running average (scream / hype)
+hype_words = ["clip it", "clip that", "clipped", "no way", "omg", "lmao", "kekw", "omegalul", "pog", "w ", "holy", "insane", "gta 6", "bro what"]
+
+[pre_post]                     # seconds before/after the trigger time
+chat_spike = [28, 8]
+audio_spike = [18, 10]
+ai_moment = [30, 4]
+manual = [35, 5]
+
+# ---- Streamers --------------------------------------------------------------
+# Add as many as you want. platform = "twitch" (name = channel login) or
+# "youtube" (name = @handle). enabled = false keeps them in the list but idle.
+
+[[streamers]]
+platform = "twitch"
+name = "kaicenat"
+
+[[streamers]]
+platform = "twitch"
+name = "xqc"
+
+[[streamers]]
+platform = "twitch"
+name = "summit1g"
+
+[[streamers]]
+platform = "twitch"
+name = "jynxzi"
+
+[[streamers]]
+platform = "twitch"
+name = "caseoh_"
+
+[[streamers]]
+platform = "twitch"
+name = "zackrawrr"
+
+[[streamers]]
+platform = "twitch"
+name = "sodapoppin"
+
+[[streamers]]
+platform = "twitch"
+name = "hasanabi"
+
+[[streamers]]
+platform = "twitch"
+name = "fanum"
+
+[[streamers]]
+platform = "twitch"
+name = "buddha"
+enabled = false
+
+[[streamers]]
+platform = "youtube"
+name = "@IShowSpeed"
+
+[[streamers]]
+platform = "youtube"
+name = "@Valkyrae"
+enabled = false
+
+# ---- added: big variety streamers likely to play GTA 6 at launch ----
+
+[[streamers]]
+platform = "twitch"
+name = "shroud"
+
+[[streamers]]
+platform = "twitch"
+name = "lirik"
+
+[[streamers]]
+platform = "twitch"
+name = "timthetatman"
+
+[[streamers]]
+platform = "twitch"
+name = "moistcr1tikal"
+
+[[streamers]]
+platform = "twitch"
+name = "tarik"
+
+[[streamers]]
+platform = "twitch"
+name = "stableronaldo"
+
+[[streamers]]
+platform = "twitch"
+name = "jasontheween"
+
+[[streamers]]
+platform = "twitch"
+name = "lacy"
+
+[[streamers]]
+platform = "twitch"
+name = "plaqueboymax"
+
+[[streamers]]
+platform = "twitch"
+name = "sketch"
+
+[[streamers]]
+platform = "twitch"
+name = "emiru"
+
+[[streamers]]
+platform = "twitch"
+name = "nmplol"
+
+[[streamers]]
+platform = "twitch"
+name = "erobb221"
+
+[[streamers]]
+platform = "twitch"
+name = "ohnepixel"
+
+[[streamers]]
+platform = "twitch"
+name = "pokimane"
+
+[[streamers]]
+platform = "twitch"
+name = "agent00"
+
+[[streamers]]
+platform = "twitch"
+name = "theburntpeanut"
+
+[[streamers]]
+platform = "twitch"
+name = "extraemily"
+
+# ---- GTA RP regulars (NoPixel) ----
+
+[[streamers]]
+platform = "twitch"
+name = "ramee"
+
+[[streamers]]
+platform = "twitch"
+name = "penta"
+
+[[streamers]]
+platform = "twitch"
+name = "kyle"
+
+[[streamers]]
+platform = "twitch"
+name = "fuslie"
+
+[[streamers]]
+platform = "twitch"
+name = "cyr"
+
+[[streamers]]
+platform = "youtube"
+name = "@ludwig"
