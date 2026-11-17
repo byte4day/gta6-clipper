@@ -47,14 +47,37 @@ def extract_audio(video: Path, out: Path, start: float | None = None, dur: float
     return out
 
 
+def _normalize(result: dict, duration: float | None = None) -> dict:
+    from .captions import sanitize_words
+
+    words = sanitize_words(result.get("words") or [], duration)
+    text = (result.get("text") or "").strip()
+    if not text and words:
+        text = " ".join(w["word"] for w in words)
+    return {"text": text, "words": words}
+
+
+def _media_duration(media: Path) -> float | None:
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(media)],
+            capture_output=True, text=True, timeout=15,
+        ).stdout.strip()
+        d = float(out or 0)
+        return d if d > 0 else None
+    except (ValueError, subprocess.SubprocessError):
+        return None
+
+
 def transcribe(cfg, media: Path) -> dict:
     """Return {"text": str, "words": [{"word", "start", "end"}]}. Never raises; empty on failure."""
     w = cfg["whisper"]
     backend = w.get("backend", "auto")
+    duration = _media_duration(media)
     use_groq = backend in ("auto", "groq") and bool(os.environ.get("GROQ_API_KEY"))
     if use_groq:
         try:
-            return _groq(media, w)
+            return _normalize(_groq(media, w), duration)
         except Exception as e:
             log.warning("Groq whisper failed (%s), using local", str(e)[:120])
             if backend == "groq":
@@ -62,7 +85,7 @@ def transcribe(cfg, media: Path) -> dict:
     elif backend == "groq":
         log.warning("whisper.backend=groq but no GROQ_API_KEY, using local")
     try:
-        return _local(media, w)
+        return _normalize(_local(media, w), duration)
     except Exception as e:
         log.error("local whisper failed: %s", e)
         return {"text": "", "words": []}
@@ -118,37 +141,40 @@ def _local(media: Path, w: dict) -> dict:
     name = w.get("local_model", "base")
     # One ffmpeg pipe → float32; no intermediate wav on disk
     pcm = _pcm(media)
-    with _local_lock:
-        if _local_model is None or _local_name != name:
-            log.info("loading local whisper '%s' (first run downloads it)", name)
-            device, ctype = "cpu", "int8"
-            try:
-                import ctranslate2
-                if ctranslate2.get_cuda_device_count() > 0:
-                    device, ctype = "cuda", "int8_float16"
-            except Exception:
-                pass
-            _local_model = WhisperModel(name, device=device, compute_type=ctype)
-            _local_name = name
-        model = _local_model
-    # Transcribe outside the lock so parallel clips / AI scans don't queue on each other
-    segs, _ = model.transcribe(
-        pcm,
-        word_timestamps=True,
-        vad_filter=True,
-        language=w.get("language") or None,
-        beam_size=1,
-        best_of=1,
-        temperature=0.0,
-        condition_on_previous_text=False,
-        vad_parameters={"min_silence_duration_ms": 400},
-    )
-    words, text = [], []
-    for s in segs:
-        text.append(s.text.strip())
-        for x in s.words or []:
-            words.append({"word": x.word.strip(), "start": float(x.start), "end": float(x.end)})
-    return {"text": " ".join(text), "words": words}
+    try:
+        with _local_lock:
+            if _local_model is None or _local_name != name:
+                log.info("loading local whisper '%s' (first run downloads it)", name)
+                device, ctype = "cpu", "int8"
+                try:
+                    import ctranslate2
+                    if ctranslate2.get_cuda_device_count() > 0:
+                        device, ctype = "cuda", "int8_float16"
+                except Exception:
+                    pass
+                _local_model = WhisperModel(name, device=device, compute_type=ctype)
+                _local_name = name
+            model = _local_model
+        # Transcribe outside the lock so parallel clips / AI scans don't queue on each other
+        segs, _ = model.transcribe(
+            pcm,
+            word_timestamps=True,
+            vad_filter=True,
+            language=w.get("language") or None,
+            beam_size=1,
+            best_of=1,
+            temperature=0.0,
+            condition_on_previous_text=False,
+            vad_parameters={"min_silence_duration_ms": 400},
+        )
+        words, text = [], []
+        for s in segs:
+            text.append(s.text.strip())
+            for x in s.words or []:
+                words.append({"word": x.word.strip(), "start": float(x.start), "end": float(x.end)})
+        return {"text": " ".join(text), "words": words}
+    finally:
+        del pcm  # drop the float32 buffer ASAP (AI scans + clips share this process)
 
 
 def _pcm(media: Path):

@@ -173,8 +173,9 @@ def fallback_metadata(streamer: str, trigger: str, transcript: str) -> dict:
 
 
 SCAN_SYSTEM = (
-    "You watch live GTA 6 streams through transcript + chat and decide if the last 30 seconds is a clip-worthy moment "
-    "(funny, shocking, rage, hype, famous catchphrase, big reveal, first reactions). Most windows are NOT clip-worthy."
+    "You watch live streams through transcript + chat and decide if the last 30 seconds contain a clip-worthy moment "
+    "(funny, shocking, rage, hype, catchphrase, big reveal, first reaction). Most windows are NOT clip-worthy. "
+    "If yes, mark WHEN the peak happens inside the 30s window so the clip can be centered on it."
 )
 
 
@@ -184,6 +185,7 @@ def scan_moment(llm: LLM, streamer: str, transcript: str, chat: list[str], categ
     user = (
         f"Streamer: {streamer}  Game: {category}\nLast 30s transcript: {transcript[:1500]}\n"
         f"Chat last 30s ({len(chat)} msgs): {' | '.join(chat[-60:])[:1500]}\n"
-        'Return {"score": int 0-10, "reason": str (max 12 words)}'
+        'Return {"score": int 0-10, "reason": str (max 12 words), '
+        '"peak_at": float (seconds into this 30s window when the moment peaks, 0-30; use ~22 if unsure)}'
     )
-    return llm.json(SCAN_SYSTEM, user, temperature=0.2, max_tokens=120)
+    return llm.json(SCAN_SYSTEM, user, temperature=0.2, max_tokens=160)

@@ -10,6 +10,7 @@ from pathlib import Path
 from .captions import build_ass
 from .config import FONTS_DIR
 from .llm import LLM, clip_metadata
+from .resources import encode_slot
 from .transcribe import transcribe
 
 log = logging.getLogger("edit")
@@ -33,9 +34,11 @@ def render(cfg, raw: Path, ass: Path, out: Path, vertical: bool, duration: float
                                      "-of", "csv=p=0", str(raw)], capture_output=True, text=True).stdout.strip())
     if vertical:
         z = float(e.get("vertical_zoom", 1.18))
+        # Blur a tiny frame then upscale — same look as full-res boxblur, ~5–10× cheaper on CPU/RAM.
         vf = (
             "[0:v]split[a][b];"
-            "[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:3,eq=brightness=-0.18:saturation=1.25[bg];"
+            "[a]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,"
+            "gblur=sigma=12,scale=1080:1920,eq=brightness=-0.18:saturation=1.25[bg];"
             f"[b]crop=iw/{z}:ih:(iw-iw/{z})/2:0,scale=1080:-2[fg];"
             "[bg][fg]overlay=(W-w)/2:(H-h)/2-60[v0]"
         )
@@ -53,11 +56,13 @@ def render(cfg, raw: Path, ass: Path, out: Path, vertical: bool, duration: float
     if has_audio:
         cmd += ["-map", "0:a:0"]
         if e.get("loudnorm", True):
-            cmd += ["-af", "loudnorm=I=-14:TP=-1.5:LRA=11"]
+            # dynaudnorm is real-time; EBU loudnorm re-reads the whole file and fights live recorders.
+            cmd += ["-af", "dynaudnorm=f=75:g=15:p=0.9"]
         cmd += ["-c:a", "aac", "-b:a", "160k", "-ar", "48000"]
-    cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", "30", "-t", f"{duration:.2f}",
-            "-movflags", "+faststart", str(out)]
-    subprocess.run(cmd, check=True)
+    cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-threads", "2", "-r", "30",
+            "-t", f"{duration:.2f}", "-movflags", "+faststart", str(out)]
+    with encode_slot():
+        subprocess.run(cmd, check=True)
 
 
 def process_clip(cfg, llm: LLM, clip_dir: Path, info: dict) -> dict:

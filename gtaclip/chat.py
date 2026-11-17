@@ -20,7 +20,7 @@ def is_hype(text: str, words: list[str]) -> bool:
 
 class ChatBase:
     def __init__(self, hype_words: list[str]):
-        self.msgs: deque[tuple[float, str, str]] = deque(maxlen=20000)
+        self.msgs: deque[tuple[float, str, str]] = deque(maxlen=4000)  # ~few minutes of chat; bounds RAM per streamer
         self.hype_words = [h.lower() for h in hype_words]
         self.baseline: float | None = None  # msgs/sec, slow moving average
         self.started = time.time()

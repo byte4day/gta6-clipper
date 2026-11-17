@@ -22,6 +22,7 @@ from .config import ROOT, Config, Streamer
 from .editor import process_clip
 from .llm import LLM, scan_moment
 from .recorder import STREAMLINK, Recorder
+from .resources import ai_scan_slot, encoding
 from .socials import auto_upload_if_enabled
 from .transcribe import transcribe
 
@@ -84,6 +85,7 @@ class Watcher:
         self.force = False  # "record anyway" from the dashboard (ignores gta_only / max_recordings)
         self.wake = threading.Event()
         self.last_full_probe = 0.0
+        self._scan_busy = False  # true while an AI-scan thread is alive (even if it ends up skipping)
 
     # ---- helpers ----------------------------------------------------------
     def note(self, msg: str) -> None:
@@ -125,14 +127,18 @@ class Watcher:
         with self.lock:
             for j in self.pending:  # merge into an overlapping clip instead of duplicating
                 if t0 <= j.t1 and t1 >= j.t0 and j.trigger not in ("stream_start", "gta6_open"):
-                    j.t1 = min(max(j.t1, t1), j.t0 + 90)
-                    j.reason += f" + {reason}"
+                    j.t1 = min(max(j.t1, t1), j.t0 + 60)  # hard cap keeps renders fast under load
+                    if reason not in j.reason:
+                        j.reason += f" + {reason}"
                     return True
             if auto and trigger in ("chat_spike", "audio_spike", "ai_moment"):
                 if now - self.last_auto < float(self.d.get("cooldown_seconds", 45)):
                     return False
                 self.last_auto = now
+            if len(self.pending) >= 8:  # never let a backlog pin the whole ring buffer in RAM/disk
+                return False
             t0 = max(t0, self.rec.buffered_from())
+            t1 = min(t1, t0 + 90)
             job = ClipJob(trigger, reason, t0, t1)
             self.pending.append(job)
             self.rec.holds[job.id] = t0
@@ -164,27 +170,66 @@ class Watcher:
         need = max(float(self.d.get("chat_spike_min_rate", 4)), base * float(self.d.get("chat_spike_ratio", 3)))
         hype = c.hype_ratio(6)
         if rate >= need or (rate >= need * 0.6 and hype >= 0.5):
-            self.fire_window("chat_spike", f"chat {rate:.0f}/s (normal {base:.1f}/s, hype {hype:.0%})")
+            # Center on the loudest recent chat sample, not "now" (spike already happened).
+            recent = list(self.rate_hist)[-10:]
+            peak_t = max(recent, key=lambda x: x[1])[0] if recent else time.time()
+            self.fire_window(
+                "chat_spike",
+                f"chat {rate:.0f}/s (normal {base:.1f}/s, hype {hype:.0%})",
+                at=peak_t,
+            )
 
-    def ai_scan(self) -> None:
+    def ai_scan(self) -> bool:
+        """Run one moment scan. Returns True only if the scan actually ran (slot acquired)."""
         llm = self.app.llm
         if not (self.cfg["llm"].get("ai_scan", True) and llm.available() and self.rec):
-            return
-        end = self.rec.buffered_until()
-        if end - self.rec.buffered_from() < 30:
-            return
-        with tempfile.TemporaryDirectory() as td:
-            tmp = Path(td) / "scan.mp4"
-            if not self.rec.cut(end - 30, end, tmp):
-                return
-            tr = transcribe(self.cfg, tmp)
-        chat = [t for _, _, t in self.chat.between(end - 30, end + 8)] if self.chat else []
-        res = scan_moment(llm, self.s.display, tr["text"], chat, self.category)
-        if res and int(res.get("score", 0)) >= int(self.cfg["llm"].get("ai_min_score", 8)):
-            self.fire_window("ai_moment", f"AI {res.get('score')}/10: {res.get('reason', '')}", at=end)
+            return False
+        with ai_scan_slot(blocking=False) as ok:
+            if not ok:
+                return False  # busy — caller must NOT burn the scan cooldown
+            self.last_scan = time.time()
+            end = self.rec.buffered_until()
+            if end - self.rec.buffered_from() < 30:
+                return True
+            win0 = end - 30
+            with tempfile.TemporaryDirectory() as td:
+                tmp = Path(td) / "scan.mp4"
+                # Fast copy is fine here — Whisper only needs audio.
+                if not self.rec.cut(win0, end, tmp, accurate=False):
+                    return True
+                tr = transcribe(self.cfg, tmp)
+            chat = [t for _, _, t in self.chat.between(win0, end + 8)] if self.chat else []
+            res = scan_moment(llm, self.s.display, tr["text"], chat, self.category)
+            if not res or int(res.get("score", 0)) < int(self.cfg["llm"].get("ai_min_score", 8)):
+                return True
+            try:
+                peak_at = float(res.get("peak_at", 22))
+            except (TypeError, ValueError):
+                peak_at = 22.0
+            peak_at = max(0.0, min(30.0, peak_at))
+            at = win0 + peak_at
+            self.fire_window("ai_moment", f"AI {res.get('score')}/10: {res.get('reason', '')}", at=at)
+            return True
 
     # ---- lifecycle ----------------------------------------------------------
     def go_live(self, fresh: bool) -> None:
+        # Submit any offline clips first; never delete a buffer mid-cut.
+        self.flush_jobs()
+        old = self.rec
+        if old:
+            old.stop()
+            if old.holds:
+                # Late make_clip jobs still need the segments — move them aside so the
+                # new session can record into buffer/<key>/ without racing the cuts.
+                self._retire_recorder(old)
+            else:
+                try:
+                    old.cleanup()
+                except Exception as e:
+                    log.warning("buffer cleanup %s: %s", self.s.display, e)
+            if self.rec is old:
+                self.rec = None
+        self.pending.clear()
         self.live = True
         self.live_since = time.time()
         self.rec = Recorder(self.s, self.cfg, on_loudness=self.on_loudness)
@@ -207,9 +252,37 @@ class Watcher:
         self.status = "offline"
         if self.chat:
             self.chat.stop()
-        # let pending clips finish from the remaining buffer, then stop
+            self.chat = None
+        # Stop ingest but keep segments on disk until pending clips finish cutting.
         if self.rec:
             self.rec.stop()
+
+    def _retire_recorder(self, rec: Recorder) -> None:
+        """Rename the ring buffer so reconnects can record while late cuts finish."""
+        src = rec.dir
+        if not src.exists():
+            return
+        dst = src.parent / f"{src.name}.retiring-{int(time.time() * 1000)}"
+        try:
+            src.rename(dst)
+            rec.dir = dst
+            log.info("retired buffer %s → %s (clips still cutting)", src.name, dst.name)
+        except OSError as e:
+            log.warning("could not retire buffer %s: %s", src, e)
+
+    def _release_recorder(self, force: bool = False) -> None:
+        """Free buffer disk/RAM once nothing still needs the ring segments."""
+        rec = self.rec
+        if not rec:
+            return
+        if not force and (self.live or self.pending or rec.holds):
+            return
+        try:
+            rec.cleanup()
+        except Exception as e:
+            log.warning("buffer cleanup %s: %s", self.s.display, e)
+        if self.rec is rec:
+            self.rec = None
 
     def check_gta6_first(self) -> None:
         if self.is_gta() and not self.state.get("gta6_first"):
@@ -289,15 +362,16 @@ class Watcher:
                         next_probe = 0
                 else:
                     self.check_chat()
-                    if self._scan_due():
-                        self.last_scan = time.time()
+                    if self._scan_due() and not encoding() and not self._scan_busy:
+                        self._scan_busy = True
                         threading.Thread(target=self._safe_scan, daemon=True).start()
             self.flush_jobs()
+            if not self.live:
+                self._release_recorder()
             if self.wake.wait(1.0):
                 self.wake.clear()
                 next_probe = 0.0
-        if self.rec:
-            self.rec.stop()
+        self._release_recorder(force=True)
 
     def _scan_due(self) -> bool:
         return (self.cfg["llm"].get("ai_scan", True) and self.app.llm.available()
@@ -305,22 +379,25 @@ class Watcher:
 
     def _safe_scan(self) -> None:
         try:
-            self.ai_scan()
+            self.ai_scan()  # sets last_scan only after acquiring the scan slot
         except Exception as e:
             log.warning("ai scan %s: %s", self.s.display, e)
+        finally:
+            self._scan_busy = False
 
     def flush_jobs(self) -> None:
         """Cut every pending clip whose end is now in the buffer (or the stream ended)."""
         if not self.rec:
             return
-        done_until = self.rec.buffered_until()
-        dead = not self.rec.alive()
+        rec = self.rec  # bind before submit — go_live may replace w.rec while the pool runs
+        done_until = rec.buffered_until()
+        dead = not rec.alive()
         with self.lock:
             ready = [j for j in self.pending if done_until >= j.t1 or dead]
             for j in ready:
                 self.pending.remove(j)
         for j in ready:
-            self.app.pool.submit(self.app.make_clip, self, j)
+            self.app.pool.submit(self.app.make_clip, self, j, rec)
 
 
 def friendly_error(e: Exception) -> str:
@@ -334,7 +411,8 @@ class App:
         self.cfg = cfg
         self.llm = LLM(cfg)
         self.stopping = threading.Event()
-        self.pool = ThreadPoolExecutor(max_workers=int(cfg["general"].get("clip_workers", 2)))
+        # Default 1 worker: parallel x264+blur encodes fight live HLS/streamlink on typical boxes.
+        self.pool = ThreadPoolExecutor(max_workers=max(1, int(cfg["general"].get("clip_workers", 1))))
         streamers = list(cfg.streamers)
         if only:
             keys = {o.lstrip("@").lower() for o in only}
@@ -374,6 +452,7 @@ class App:
         return sum(1 for w in self.watchers if w.rec and w.rec.alive())
 
     def start(self) -> None:
+        self._scrub_orphan_buffers()
         if core.available():
             log.info("gtacore (Rust) on: fast live checks, segment timing, one chat socket")
             self._live_once()  # one ~1 s check up front, so offline streamers never start a streamlink probe
@@ -383,12 +462,34 @@ class App:
         for w in self.watchers:
             threading.Thread(target=w.run, daemon=True, name=f"watch-{w.s.key}").start()
 
-    def make_clip(self, w: Watcher, job: ClipJob) -> None:
+    def _scrub_orphan_buffers(self) -> None:
+        """Delete leftover buffer/<streamer>/ dirs from previous runs (can be hundreds of MB)."""
+        import shutil
+
+        root = self.cfg.path("buffer_dir")
+        if not root.exists():
+            return
+        freed = 0
+        for p in root.iterdir():
+            if not p.is_dir():
+                continue
+            # Always wipe on startup — no recorder is alive yet.
+            try:
+                size = sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
+                shutil.rmtree(p, ignore_errors=True)
+                freed += size
+            except OSError:
+                pass
+        if freed:
+            log.info("cleared %.0f MB of leftover ring buffers", freed / 1e6)
+
+    def make_clip(self, w: Watcher, job: ClipJob, rec: Recorder | None = None) -> None:
         stamp = datetime.fromtimestamp(job.t0).strftime("%Y%m%d-%H%M%S")
         d = self.out / w.s.key / f"{stamp}_{job.trigger}"
         d.mkdir(parents=True, exist_ok=True)
+        rec = rec or w.rec  # prefer the recorder bound at flush time (survives reconnect)
         try:
-            if not w.rec.cut(job.t0, job.t1, d / "raw.mp4"):
+            if not rec or not rec.cut(job.t0, job.t1, d / "raw.mp4"):
                 w.note(f"✗ {job.trigger}: nothing in buffer")
                 return
             chat = [f"{u}: {t}" for _, u, t in (w.chat.between(job.t0, job.t1 + 6) if w.chat else [])]
@@ -406,7 +507,16 @@ class App:
             (d / "meta.json").write_text(json.dumps({"streamer": w.s.display, "trigger": job.trigger,
                                                      "status": "error", "error": friendly_error(e)}))
         finally:
-            w.rec.holds.pop(job.id, None)
+            if rec:
+                rec.holds.pop(job.id, None)
+                # Retired recorder from a previous session (reconnect): free it once cuts finish.
+                if rec is not w.rec and not rec.holds:
+                    try:
+                        rec.cleanup()
+                    except Exception as e:
+                        log.warning("retired buffer cleanup %s: %s", w.s.display, e)
+                elif not w.live:
+                    w._release_recorder()
 
     # ---- runtime changes from the dashboard -----------------------------------
     def find(self, key: str) -> Watcher | None:
@@ -482,7 +592,6 @@ class App:
         self.stopping.set()
         self.pool.shutdown(wait=False, cancel_futures=True)
         for w in self.watchers:
-            if w.rec:
-                w.rec.stop()
             if w.chat:
                 w.chat.stop()
+            w._release_recorder(force=True)

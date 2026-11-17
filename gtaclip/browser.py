@@ -84,14 +84,18 @@ class Browser:
             try:
                 if kind == "resolve" and not b.cancelled():
                     try:
-                        b.set_result(self._capture(ctx, a))
+                        # Keep YouTube chat alive while Twitch playlist resolve runs (up to ~25 s).
+                        b.set_result(self._capture(ctx, a, on_tick=self._poll_chats))
                     except Exception as e:
                         b.set_exception(e)
                 elif kind == "chat+":
                     self._open_chat(ctx, a, b)
                 elif kind == "chat-" and a in self.chats:
                     page, _ = self.chats.pop(a)
-                    page.close()
+                    try:
+                        page.close()
+                    except Exception:
+                        pass
                 if time.time() - last_chat > 1.5:
                     last_chat = time.time()
                     self._poll_chats()
@@ -99,6 +103,12 @@ class Browser:
                 log.warning("browser: %s", str(e)[:160])
             if not browser.is_connected():  # crashed: a new one starts on the next request
                 self.ok = None
+                for page, _ in list(self.chats.values()):
+                    try:
+                        page.close()
+                    except Exception:
+                        pass
+                self.chats.clear()
                 Browser._inst = None
                 return
 
@@ -113,22 +123,40 @@ class Browser:
     def _open_chat(self, ctx, key: str, arg) -> None:
         url, cb = arg
         if key in self.chats:
-            self.chats.pop(key)[0].close()
+            old, _ = self.chats.pop(key)
+            try:
+                old.close()
+            except Exception:
+                pass
         page = ctx.new_page()
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
         self.chats[key] = (page, cb)
         log.info("reading YouTube chat for %s", key)
 
     def _poll_chats(self) -> None:
+        dead = []
         for key, (page, cb) in list(self.chats.items()):
             try:
+                if page.is_closed():
+                    dead.append(key)
+                    continue
                 for author, text in page.evaluate(_JS_CHAT):
                     cb(author, text)
             except Exception as e:
-                log.warning("chat %s: %s", key, str(e)[:100])
+                # Transient DOM blips are common; only drop the page if it actually died.
+                if page.is_closed():
+                    dead.append(key)
+                else:
+                    log.warning("chat %s: %s", key, str(e)[:100])
+        for key in dead:
+            page_cb = self.chats.pop(key, None)
+            if page_cb:
+                try:
+                    page_cb[0].close()
+                except Exception:
+                    pass
 
-    @staticmethod
-    def _capture(ctx, url: str) -> str | None:
+    def _capture(self, ctx, url: str, on_tick=None) -> str | None:
         page = ctx.new_page()
         found: list[str] = []
         page.on("request", lambda r: found.append(r.url) if ".m3u8" in r.url and "usher" in r.url else None)
@@ -145,7 +173,15 @@ class Browser:
                         btn = page.get_by_role("button", name=label)
                         if btn.count():
                             btn.first.click(timeout=2000)
+                if on_tick:
+                    try:
+                        on_tick()
+                    except Exception:
+                        pass
                 page.wait_for_timeout(500)
             return None
         finally:
-            page.close()
+            try:
+                page.close()
+            except Exception:
+                pass

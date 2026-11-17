@@ -31,6 +31,8 @@ def test_parse_master_and_pick():
 
 
 def test_caption_grouping_and_ass():
+    from gtaclip.captions import sanitize_words
+
     words = [{"word": w, "start": i * 0.4, "end": i * 0.4 + 0.3} for i, w in enumerate("no way he did that bro {x}".split())]
     chunks = group_words(words, per=3)
     assert [len(c) for c in chunks] == [3, 3, 1]
@@ -39,6 +41,21 @@ def test_caption_grouping_and_ass():
     assert ass.count("Style: Cap,Bebas Neue") == 1
     assert "{x}" not in ass  # braces stripped so ASS override tags can't be injected
     assert len(re.findall(r"^Dialogue: 0,", ass, re.M)) == 7  # one event per word
+
+    # Overlapping / backwards Whisper timestamps: keep spoken order, no overlaps
+    messy = [
+        {"word": "Nice.", "start": 2.36, "end": 2.48},
+        {"word": "One's", "start": 2.34, "end": 3.06},  # starts before previous — must be nudged
+        {"word": "close", "start": 3.06, "end": 3.2},
+        {"word": "to", "start": 3.2, "end": 3.36},
+        {"word": "us.", "start": 3.36, "end": 3.5},
+        {"word": "Maybe", "start": 3.5, "end": 3.56},
+    ]
+    fixed = sanitize_words(messy, duration=10)
+    assert [w["word"] for w in fixed] == ["Nice.", "One's", "close", "to", "us.", "Maybe"]
+    for i in range(1, len(fixed)):
+        assert fixed[i]["start"] >= fixed[i - 1]["start"] - 1e-6
+        assert fixed[i]["start"] >= fixed[i - 1]["end"] - 1e-6
 
 
 def test_gta_pattern():
@@ -124,3 +141,22 @@ def test_all_configured_streamers_are_valid():
     keys = [s.key for s in cfg.streamers]
     assert len(keys) == len(set(keys)) >= 30
     assert all(s.platform in ("twitch", "youtube") for s in cfg.streamers)
+
+
+def test_encode_gate_serializes():
+    from gtaclip.resources import encode_slot, encoding
+
+    assert encoding() is False
+    with encode_slot():
+        assert encoding() is True
+    assert encoding() is False
+
+
+def test_ai_scan_slot_skips_when_encoding():
+    from gtaclip.resources import ai_scan_slot, encode_slot
+
+    with encode_slot():
+        with ai_scan_slot(blocking=False) as ok:
+            assert ok is False
+    with ai_scan_slot(blocking=False) as ok:
+        assert ok is True

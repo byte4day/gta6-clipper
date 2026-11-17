@@ -23,6 +23,7 @@ import requests
 
 from . import core
 from .browser import UA, Browser
+from .resources import encode_slot, encoding
 
 log = logging.getLogger("rec")
 
@@ -150,14 +151,18 @@ class HLSPuller(threading.Thread):
                             in_ad = True
                         else:
                             data = self.http.get(urljoin(media, line), timeout=15).content
-                            if cur_map and cur_map != written_map:
-                                if written_map is not None:  # format changed: new ffmpeg, same buffer
-                                    self.rec.restart_ffmpeg()
-                                init = self.http.get(cur_map, timeout=15).content
-                                self.rec.proc_ff.stdin.write(init)
-                                written_map = cur_map
-                            self.rec.proc_ff.stdin.write(data)
-                            self.rec.proc_ff.stdin.flush()
+                            try:
+                                if cur_map and cur_map != written_map:
+                                    if written_map is not None:  # format changed: new ffmpeg, same buffer
+                                        self.rec.restart_ffmpeg()
+                                    init = self.http.get(cur_map, timeout=15).content
+                                    self.rec.proc_ff.stdin.write(init)
+                                    written_map = cur_map
+                                self.rec.proc_ff.stdin.write(data)
+                                self.rec.proc_ff.stdin.flush()
+                            except (BrokenPipeError, OSError) as e:
+                                self.reason = f"ffmpeg pipe closed: {e}"
+                                return
                             self.rec.bytes_in += len(data)
                         last_seq = seq
                     seq += 1
@@ -194,20 +199,34 @@ class Recorder:
         self._durs: dict[str, float] = {}  # segment name -> real media duration
 
     # ---- process control -------------------------------------------------
+    def _close_fflog(self) -> None:
+        logf = getattr(self, "_fflog", None)
+        if logf and not logf.closed:
+            try:
+                logf.close()
+            except OSError:
+                pass
+        self._fflog = None
+
     def _ffmpeg(self, stdin, start_number: int = 0) -> subprocess.Popen:
         ff = ["ffmpeg", "-loglevel", "error", "-fflags", "+genpts+discardcorrupt", "-i", "pipe:0",
               "-map", "0:v:0?", "-map", "0:a:0?", "-c", "copy", "-f", "segment", "-segment_time", str(self.seg),
               "-segment_start_number", str(start_number), "-segment_format", "mpegts", str(self.dir / "%06d.ts")]
+        self._close_fflog()
         self._fflog = open(self.dir / "ffmpeg.log", "ab")
+        # Recording stays ahead of clip encodes: slightly nicer than default, never below normal for puller.
         return subprocess.Popen(ff, stdin=stdin, stderr=self._fflog)
 
     def restart_ffmpeg(self) -> None:
         old = self.proc_ff
         try:
-            old.stdin.close()
-            old.wait(10)
+            if old and old.stdin:
+                old.stdin.close()
+            if old:
+                old.wait(10)
         except Exception:
-            old.kill()
+            if old:
+                old.kill()
         files = self._files()
         self.proc_ff = self._ffmpeg(subprocess.PIPE, (files[-1][0] + 1) if files else 0)
 
@@ -258,6 +277,11 @@ class Recorder:
 
     def stop(self) -> None:
         self._stop.set()
+        if self.proc_ff and self.proc_ff.stdin and self.backend == "browser":
+            try:
+                self.proc_ff.stdin.close()
+            except OSError:
+                pass
         for p in (self.proc_sl, self.proc_ff):
             if p and p.poll() is None:
                 p.terminate()
@@ -265,6 +289,22 @@ class Recorder:
                     p.wait(5)
                 except subprocess.TimeoutExpired:
                     p.kill()
+        self._close_fflog()
+        if self.puller:
+            try:
+                self.puller.http.close()
+            except Exception:
+                pass
+
+    def cleanup(self) -> None:
+        """Stop ingest and delete the ring buffer (call only when no clip still needs it)."""
+        self.stop()
+        self._analyzed.clear()
+        self._durs.clear()
+        self._ends.clear()
+        self.holds.clear()
+        if self.dir.exists():
+            shutil.rmtree(self.dir, ignore_errors=True)
 
     # ---- buffer ----------------------------------------------------------
     def _files(self) -> list[tuple[int, Path]]:
@@ -273,20 +313,47 @@ class Recorder:
         except FileNotFoundError:
             return []
 
+    def _forget_seg(self, name: str, idx: int | None = None) -> None:
+        self._analyzed.discard(name)
+        self._durs.pop(name, None)
+        if idx is not None:
+            self._ends.pop(idx, None)
+
     def segments(self) -> list[tuple[float, float, Path]]:
-        """Completed segments as (wall_start, wall_end, path). The newest (still writing) is excluded."""
+        """Completed segments as (timeline_start, timeline_end, path).
+
+        Timeline is anchored to the newest segment's mtime, then walked backwards using
+        real media durations when known — so "last 30s" matches actual audio/video, not
+        wall-clock gaps from ads/stalls.
+        """
         files = self._files()
-        out = []
-        for (i, p), _ in zip(files, files[1:]):
-            end = self._ends.get(i)
-            if end is None:
-                try:
-                    end = self._ends[i] = p.stat().st_mtime
-                except FileNotFoundError:
-                    continue
-            start = self._ends.get(i - 1, end - self.seg)
-            out.append((start, end, p))
-        return out
+        completed = files[:-1]  # newest file is still being written
+        if not completed:
+            return []
+        rows: list[tuple[int, Path, float]] = []
+        for i, p in completed:
+            try:
+                end_mtime = self._ends.get(i)
+                if end_mtime is None:
+                    end_mtime = self._ends[i] = p.stat().st_mtime
+            except FileNotFoundError:
+                continue
+            dur = self._durs.get(p.name) or 0.0
+            if dur <= 0.05:
+                dur = float(self.seg)
+            rows.append((i, p, dur))
+        if not rows:
+            return []
+        # Anchor the last completed segment's end to when it landed on disk
+        last_i, last_p, _ = rows[-1]
+        t = self._ends.get(last_i, last_p.stat().st_mtime)
+        out_rev: list[tuple[float, float, Path]] = []
+        for i, p, dur in reversed(rows):
+            start = t - dur
+            out_rev.append((start, t, p))
+            t = start
+        out_rev.reverse()
+        return out_rev
 
     def buffered_until(self) -> float:
         segs = self.segments()
@@ -307,21 +374,47 @@ class Recorder:
             lines += [f"#EXTINF:{dur:.3f},", f"seg/{p.name}"]
         return "\n".join(lines) + "\n"
 
-    def cut(self, t0: float, t1: float, out: Path) -> bool:
+    def cut(self, t0: float, t1: float, out: Path, accurate: bool = True) -> bool:
+        """Cut [t0, t1] from the ring buffer into out.
+
+        accurate=True (default): frame-accurate re-encode so A/V start at 0 — required for
+        captions. accurate=False: try stream-copy (fine for throwaway AI-scan audio).
+        """
         segs = [s for s in self.segments() if s[1] > t0 and s[0] < t1]
         if not segs:
             return False
         offset = max(0.0, t0 - segs[0][0])
         dur = min(t1, segs[-1][1]) - max(t0, segs[0][0])
+        if dur <= 0.05:
+            return False
         with tempfile.TemporaryDirectory() as td:
             lst = Path(td) / "list.txt"
-            lst.write_text("".join(f"file '{p}'\n" for _, _, p in segs))
-            joined = Path(td) / "joined.ts"
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
-                            "-c", "copy", str(joined)], check=True)
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{offset:.2f}", "-i", str(joined),
-                            "-t", f"{dur:.2f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
-                            "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out)], check=True)
+            # Absolute paths: concat resolves relative entries against the list file's directory.
+            lines = []
+            for _, _, p in segs:
+                ap = str(p.resolve()).replace("'", r"'\''")
+                lines.append(f"file '{ap}'\n")
+            lst.write_text("".join(lines))
+            if not accurate:
+                copy = subprocess.run(
+                    ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
+                     "-ss", f"{offset:.3f}", "-t", f"{dur:.3f}", "-c", "copy", "-bsf:a", "aac_adtstoasc",
+                     "-movflags", "+faststart", str(out)],
+                    capture_output=True)
+                if copy.returncode == 0 and out.exists() and out.stat().st_size > 10000:
+                    return True
+                out.unlink(missing_ok=True)
+            # Re-encode: keeps video/audio locked and starting at pts 0 (stream-copy was ~2s early on video).
+            with encode_slot():
+                subprocess.run(
+                    ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
+                     "-ss", f"{offset:.3f}", "-t", f"{dur:.3f}",
+                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-threads", "2",
+                     "-fps_mode", "cfr", "-r", "30",
+                     "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+                     "-af", "aresample=async=1:first_pts=0",
+                     "-movflags", "+faststart", str(out)],
+                    check=True)
         return out.exists() and out.stat().st_size > 10000
 
     def preview(self) -> Path:
@@ -343,9 +436,12 @@ class Recorder:
             floor = min([time.time() - self.keep, *list(self.holds.values())])
             for a, b, p in segs:
                 if b < floor:
+                    idx = int(p.stem) if p.stem.isdigit() else None
                     p.unlink(missing_ok=True)
+                    self._forget_seg(p.name, idx)
+            busy = encoding()  # while a clip encodes, skip extra ffmpeg so live pullers keep CPU/IO
             try:
-                if time.time() - self._last_preview > 4:
+                if not busy and time.time() - self._last_preview > 4:
                     self._last_preview = time.time()
                     self._make_preview(segs[-1][2])
             except (subprocess.SubprocessError, OSError):
@@ -356,7 +452,7 @@ class Recorder:
                     continue
                 self._analyzed.add(p.name)
                 self._durs[p.name] = media_duration(p)
-                if not self.on_loudness:
+                if busy or not self.on_loudness:
                     continue
                 peak = momentary_peak(p)
                 if peak is not None:

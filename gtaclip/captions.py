@@ -29,12 +29,62 @@ def _clean(s: str) -> str:
     return re.sub(r"[{}\\]", "", s).strip()
 
 
-def group_words(words: list[dict], per: int = 3, max_gap: float = 0.7) -> list[list[dict]]:
+def sanitize_words(words: list[dict], duration: float | None = None) -> list[dict]:
+    """Keep Whisper's spoken order; fix overlaps / backwards times so karaoke doesn't jump."""
+    cleaned: list[dict] = []
+    for w in words or []:
+        text = _clean(str(w.get("word", "")))
+        if not text:
+            continue
+        try:
+            start, end = float(w["start"]), float(w["end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end < start:
+            start, end = end, start
+        if end - start < 0.05:
+            end = start + 0.05
+        cleaned.append({"word": text, "start": start, "end": end})
+
+    out: list[dict] = []
+    for w in cleaned:
+        if duration is not None and w["start"] >= duration - 0.02 and out:
+            # trailing junk past the media end — drop
+            continue
+        if out:
+            prev = out[-1]
+            # Never go backwards in time (Whisper sometimes emits overlapping alternatives)
+            if w["start"] < prev["start"]:
+                w = {**w, "start": prev["end"]}
+            elif w["start"] < prev["end"]:
+                out[-1] = {**prev, "end": w["start"]}
+                prev = out[-1]
+                if prev["end"] <= prev["start"]:
+                    out[-1] = {**prev, "end": prev["start"] + 0.05}
+                    w = {**w, "start": out[-1]["end"]}
+        if w["end"] <= w["start"]:
+            w = {**w, "end": w["start"] + 0.06}
+        if duration is not None:
+            w = {**w, "end": min(w["end"], max(w["start"] + 0.05, duration))}
+            if w["start"] >= duration:
+                continue
+        out.append(w)
+    return out
+
+
+def group_words(words: list[dict], per: int = 3, max_gap: float = 0.55) -> list[list[dict]]:
     chunks, cur = [], []
     for w in words:
-        if not _clean(w["word"]):
+        text = _clean(w["word"])
+        if not text:
             continue
-        if cur and (len(cur) >= per or w["start"] - cur[-1]["end"] > max_gap or re.search(r"[.!?]$", cur[-1]["word"])):
+        split = bool(cur) and (
+            len(cur) >= per
+            or w["start"] - cur[-1]["end"] > max_gap
+            or re.search(r"[.!?]$", cur[-1]["word"])
+            or (len(cur) >= 2 and len(text) >= 10)  # long word starts a fresh beat
+        )
+        if split:
             chunks.append(cur)
             cur = []
         cur.append(w)
@@ -53,6 +103,7 @@ def build_ass(words: list[dict], duration: float, style: str = "gta", vertical: 
     hook_box = HOOK_BOX.get(style, "&H00A53EFF")
     hook_text_color = "&H00FFFFFF" if style != "minimal" else "&H00000000"
     hook_font = "Anton" if style != "mrbeast" else "Luckiest Guy"
+    words = sanitize_words(words, duration)
 
     head = f"""[Script Info]
 ScriptType: v4.00+
@@ -84,13 +135,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         ev.append(f"Dialogue: 1,{_ts(0)},{_ts(duration)},Mark,,0,0,0,,{{\\pos({mx},{my})}}{_clean(watermark)}")
 
     for chunk in group_words(words, per):
-        texts = [_clean(w["word"]).upper() if st["upper"] else _clean(w["word"]) for w in chunk]
-        chunk_end = min(chunk[-1]["end"] + 0.25, duration)
+        texts = [w["word"].upper() if st["upper"] else w["word"] for w in chunk]
+        # Hold the last word a beat so the line doesn't vanish mid-phrase
+        chunk_end = min(max(chunk[-1]["end"] + 0.18, chunk[-1]["start"] + 0.35), duration if duration > 0 else chunk[-1]["end"] + 0.18)
         for i, w in enumerate(chunk):
-            start = w["start"]
+            start = max(0.0, w["start"])
             end = chunk[i + 1]["start"] if i + 1 < len(chunk) else chunk_end
+            if end - start < 0.07:
+                end = start + 0.07
+            if duration > 0:
+                end = min(end, duration)
             if end <= start:
-                end = start + 0.08
+                continue
             parts = []
             for j, t in enumerate(texts):
                 if j == i:

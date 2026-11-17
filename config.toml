@@ -12,7 +12,7 @@ quality = "720p60,720p,best"  # stream quality order (first available wins)
 recorder = "browser"          # browser = headless Chrome captures the stream (Twitch; YouTube auto-falls back) | streamlink
 max_recordings = 6            # max streams recorded at once (bandwidth/disk guard)
 record_mode = "always"        # "always" = record any live stream, "gta_only" = only while category/title is GTA
-clip_workers = 2              # clips edited in parallel
+clip_workers = 1              # keep at 1 so a render cannot starve live YouTube/Twitch recorders
 dashboard_port = 8787
 
 [edit]
@@ -58,10 +58,10 @@ chat_spike_min_rate = 4.0     # ignore spikes slower than this (msgs/sec)
 audio_spike_db = 12.0        # loudness jump above the running average (scream / hype)
 hype_words = ["clip it", "clip that", "clipped", "no way", "omg", "lmao", "kekw", "omegalul", "pog", "w ", "holy", "insane", "gta 6", "bro what"]
 
-[pre_post]                     # seconds before/after the trigger time
-chat_spike = [28, 8]
-audio_spike = [18, 10]
-ai_moment = [30, 4]
+[pre_post]                     # seconds before/after the trigger peak
+chat_spike = [22, 10]          # center on chat peak, keep a bit of aftermath
+audio_spike = [16, 10]
+ai_moment = [14, 10]           # AI returns peak_at; keep clip tight around it
 manual = [35, 5]
 
 [socials]
