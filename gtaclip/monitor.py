@@ -49,6 +49,7 @@ class ClipJob:
     t1: float
     id: int = field(default_factory=lambda: next(_ids))
     created: float = field(default_factory=time.time)
+    style: str | None = None  # caption style override (manual cut picker)
 
 
 class Watcher:
@@ -82,10 +83,12 @@ class Watcher:
         self.rate_hist: deque = deque(maxlen=150)  # (t, chat msgs/sec) every 2 s for sparklines
         self.clip_count = 0
         self.hold_off = False  # user stopped this recording: don't restart until the stream ends
-        self.force = False  # "record anyway" from the dashboard (ignores gta_only / max_recordings)
+        self.force = False  # one-shot start (ignores gta_only / max_recordings / manual gate)
+        self.want_record = False  # user selected this creator — record when (or while) they are live
         self.wake = threading.Event()
         self.last_full_probe = 0.0
         self._scan_busy = False  # true while an AI-scan thread is alive (even if it ends up skipping)
+        self._starting = False  # claim lock so Start can't spawn overlapping recorders
 
     # ---- helpers ----------------------------------------------------------
     def note(self, msg: str) -> None:
@@ -117,10 +120,13 @@ class Watcher:
             "mbps": round(rec.bytes_in * 8 / 1e6 / max(1, time.time() - rec.started_at), 1) if rec and rec.bytes_in else 0,
             "spark": [r for _, r in list(self.rate_hist)[-60:]], "clips": self.clip_count,
             "chat_ok": bool(self.chat and self.chat.connected),
+            "want_record": bool(self.want_record),
+            "hold_off": bool(self.hold_off),
         }
 
     # ---- triggers ---------------------------------------------------------
-    def fire(self, trigger: str, reason: str, t0: float, t1: float, auto: bool = True) -> bool:
+    def fire(self, trigger: str, reason: str, t0: float, t1: float, auto: bool = True,
+             style: str | None = None) -> bool:
         if not (self.rec and self.rec.alive()):
             return False
         now = time.time()
@@ -130,6 +136,8 @@ class Watcher:
                     j.t1 = min(max(j.t1, t1), j.t0 + 60)  # hard cap keeps renders fast under load
                     if reason not in j.reason:
                         j.reason += f" + {reason}"
+                    if style:
+                        j.style = style
                     return True
             if auto and trigger in ("chat_spike", "audio_spike", "ai_moment"):
                 if now - self.last_auto < float(self.d.get("cooldown_seconds", 45)):
@@ -139,16 +147,17 @@ class Watcher:
                 return False
             t0 = max(t0, self.rec.buffered_from())
             t1 = min(t1, t0 + 90)
-            job = ClipJob(trigger, reason, t0, t1)
+            job = ClipJob(trigger, reason, t0, t1, style=style)
             self.pending.append(job)
             self.rec.holds[job.id] = t0
         self.note(f"✂ {trigger}: {reason}")
         return True
 
-    def fire_window(self, trigger: str, reason: str, at: float | None = None, auto: bool = True) -> bool:
+    def fire_window(self, trigger: str, reason: str, at: float | None = None, auto: bool = True,
+                    style: str | None = None) -> bool:
         pre, post = self.cfg.pre_post(trigger)
         at = at or time.time()
-        return self.fire(trigger, reason, at - pre, at + post, auto)
+        return self.fire(trigger, reason, at - pre, at + post, auto, style=style)
 
     def on_loudness(self, a: float, b: float, peak: float) -> None:
         if self.loud_avg is None:
@@ -213,37 +222,51 @@ class Watcher:
 
     # ---- lifecycle ----------------------------------------------------------
     def go_live(self, fresh: bool) -> None:
-        # Submit any offline clips first; never delete a buffer mid-cut.
-        self.flush_jobs()
-        old = self.rec
-        if old:
-            old.stop()
-            if old.holds:
-                # Late make_clip jobs still need the segments — move them aside so the
-                # new session can record into buffer/<key>/ without racing the cuts.
-                self._retire_recorder(old)
+        # Claim immediately so overlapping Start clicks / probes can't spawn parallel recorders.
+        with self.lock:
+            if self.live or self._starting:
+                return
+            self._starting = True
+            self.live = True
+        try:
+            # Submit any offline clips first; never delete a buffer mid-cut.
+            self.flush_jobs()
+            old = self.rec
+            if old:
+                old.stop()
+                if old.holds:
+                    # Late make_clip jobs still need the segments — move them aside so the
+                    # new session can record into buffer/<key>/ without racing the cuts.
+                    self._retire_recorder(old)
+                else:
+                    try:
+                        old.cleanup()
+                    except Exception as e:
+                        log.warning("buffer cleanup %s: %s", self.s.display, e)
+                if self.rec is old:
+                    self.rec = None
+            self.pending.clear()
+            self.live_since = time.time()
+            self.status = "starting…"
+            self.rec = Recorder(self.s, self.cfg, on_loudness=self.on_loudness)
+            self.rec.start()  # may take a few seconds (browser playlist resolve)
+            self.chat = make_chat(self.s, self.d.get("hype_words", []), self.video_id)
+            self.loud_avg = None
+            self.status = "live"
+            self.force = False  # one-shot start consumed; want_record keeps manual selection
+            if fresh:
+                n = float(self.d.get("first_moment_seconds", 75))
+                self.note("went LIVE → clipping first moment")
+                self.fire("stream_start", "stream just started", self.live_since, self.live_since + n, auto=False)
             else:
-                try:
-                    old.cleanup()
-                except Exception as e:
-                    log.warning("buffer cleanup %s: %s", self.s.display, e)
-            if self.rec is old:
-                self.rec = None
-        self.pending.clear()
-        self.live = True
-        self.live_since = time.time()
-        self.rec = Recorder(self.s, self.cfg, on_loudness=self.on_loudness)
-        self.rec.start()
-        self.chat = make_chat(self.s, self.d.get("hype_words", []), self.video_id)
-        self.loud_avg = None
-        self.status = "live"
-        if fresh:
-            n = float(self.d.get("first_moment_seconds", 75))
-            self.note("went LIVE → clipping first moment")
-            self.fire("stream_start", "stream just started", self.live_since, self.live_since + n, auto=False)
-        else:
-            self.note("already live when tool started (no first-moment clip)")
-        self.check_gta6_first()
+                self.note("recording started")
+            self.check_gta6_first()
+        except Exception:
+            self.live = False
+            self.status = "error starting"
+            raise
+        finally:
+            self._starting = False
 
     def go_offline(self, why: str = "") -> None:
         self.note("stream ended" + (f" ({why})" if why else ""))
@@ -293,7 +316,10 @@ class Watcher:
             self.fire("gta6_open", f"first time opening GTA 6 ({self.category})", time.time() - 5, time.time() + n, auto=False)
 
     def should_record(self, info: dict) -> bool:
-        if self.cfg["general"].get("record_mode", "always") == "gta_only":
+        mode = self.cfg["general"].get("record_mode", "always")
+        if mode == "manual":
+            return bool(self.want_record or self.force)
+        if mode == "gta_only":
             return bool(self.gta_re.search(f"{info['category']} {info['title']}"))
         return True
 
@@ -336,8 +362,9 @@ class Watcher:
                 if info["live"] and not self.live:
                     if self.hold_off:
                         self.status = "live (stopped by you)"
-                    elif not self.should_record(info) and not self.force:
-                        self.status = "live (not GTA)"
+                    elif not self.should_record(info):
+                        mode = self.cfg["general"].get("record_mode", "always")
+                        self.status = "live (tap Start)" if mode == "manual" else "live (not GTA)"
                     elif not self.force and self.app.recording_count() >= int(self.cfg["general"].get("max_recordings", 6)):
                         self.status = "live (max_recordings reached)"
                     else:
@@ -347,7 +374,7 @@ class Watcher:
                 elif self.live and not info["live"] and not (self.rec and self.rec.alive()):
                     self.go_offline("platform says offline")
                 elif not info["live"]:
-                    self.status = "offline"
+                    self.status = "waiting to go live" if self.want_record else "offline"
                     self.force = self.hold_off = False
                 if self.live and self.category != was_cat and was_cat:
                     self.note(f"category → {self.category}")
@@ -493,12 +520,15 @@ class App:
                 w.note(f"✗ {job.trigger}: nothing in buffer")
                 return
             chat = [f"{u}: {t}" for _, u, t in (w.chat.between(job.t0, job.t1 + 6) if w.chat else [])]
-            process_clip(self.cfg, self.llm, d, {
+            info = {
                 "streamer": w.s.display, "platform": w.s.platform, "trigger": job.trigger, "reason": job.reason,
                 "title_stream": w.title, "title": w.title, "category": w.category, "chat": chat[-80:],
                 "started": datetime.fromtimestamp(job.t0).isoformat(timespec="seconds"),
                 "length": round(job.t1 - job.t0, 1),
-            })
+            }
+            if job.style:
+                info["style"] = job.style
+            process_clip(self.cfg, self.llm, d, info)
             w.clip_count += 1
             w.note(f"✔ clip ready ({job.trigger})")
             self.pool.submit(auto_upload_if_enabled, self, d)
@@ -552,24 +582,65 @@ class App:
         return True
 
     def record_now(self, key: str) -> bool:
+        """Select a creator and start recording now (or as soon as they go live).
+
+        Never blocks the HTTP thread on streamlink probe — that made Start feel stuck
+        and clients disconnected (BrokenPipe) while overlapping go_live calls piled up.
+        """
         w = self.find(key)
         if not w or not w.s.enabled:
             return False
+        w.want_record = True
         w.force = True
         w.hold_off = False
-        w.wake.set()  # re-probe immediately
+        if (w.live and w.rec and w.rec.alive()) or w._starting:
+            return True
+        if w.online or self.live_hint(w.s) is True:
+            threading.Thread(target=w.go_live, kwargs={"fresh": False}, daemon=True, name=f"start-{w.s.key}").start()
+            return True
+        w.status = "starting…"
+        w.wake.set()
+        threading.Thread(target=self._start_record, args=(w,), daemon=True, name=f"probe-start-{w.s.key}").start()
         return True
+
+    def _start_record(self, w: Watcher) -> None:
+        try:
+            if w.live or w._starting:
+                return
+            info = probe(w.s)
+            w.title, w.category = info.get("title") or w.title, info.get("category") or w.category
+            w.video_id = info.get("id") or w.video_id
+            w.online = bool(info.get("live"))
+            if info.get("live"):
+                if not w.online_since:
+                    w.online_since = time.time()
+                w.go_live(fresh=False)
+                return
+            w.force = False
+            w.status = "waiting to go live"
+            w.note("selected — will record when they go live")
+        except Exception as e:
+            log.warning("start %s: %s", w.s.display, e)
+            w.status = "error starting"
+            w.force = False
 
     def stop_recording(self, key: str) -> bool:
         w = self.find(key)
-        if not (w and w.live):
+        if not w:
             return False
         w.force = False
-        w.hold_off = True
-        w.go_offline()
-        w.status = "live (stopped by you)"
-        w.offline_since = time.time()
-        return True
+        w.want_record = False
+        if w.live:
+            w.hold_off = True
+            w.go_offline()
+            w.status = "live (stopped by you)"
+            w.offline_since = time.time()
+            return True
+        if w.status == "waiting to go live":
+            w.status = "offline"
+            w.note("unselected")
+            return True
+        return False
 
     def toggle_streamer(self, key: str) -> bool | None:
         w = self.find(key)
@@ -579,14 +650,15 @@ class App:
         self.cfg.save()
         return w.s.enabled
 
-    def manual(self, key: str, seconds: float | None = None) -> bool:
+    def manual(self, key: str, seconds: float | None = None, style: str | None = None) -> bool:
         w = self.find(key)
         if not w:
             return False
         if seconds:
             now = time.time()
-            return w.fire("manual", f"last {int(seconds)}s from dashboard", now - seconds, now + 3, auto=False)
-        return w.fire_window("manual", "clipped from dashboard", auto=False)
+            return w.fire("manual", f"last {int(seconds)}s from dashboard", now - seconds, now + 3,
+                          auto=False, style=style)
+        return w.fire_window("manual", "clipped from dashboard", auto=False, style=style)
 
     def stop(self) -> None:
         self.stopping.set()

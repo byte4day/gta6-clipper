@@ -18,6 +18,7 @@ _local_lock = threading.Lock()
 _tls = threading.local()
 GROQ_MAX_BYTES = 24 * 1024 * 1024  # API limit is 25 MB; leave headroom
 _GROQ_OK = {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".ogg", ".flac"}
+USAGE = {"calls": 0, "errors": 0, "last_backend": "", "last": 0}
 
 
 def _http() -> requests.Session:
@@ -69,6 +70,20 @@ def _media_duration(media: Path) -> float | None:
         return None
 
 
+def usage_snapshot() -> dict:
+    return dict(USAGE)
+
+
+def _note(backend: str, ok: bool = True) -> None:
+    import time as _t
+    USAGE["last_backend"] = backend
+    USAGE["last"] = int(_t.time())
+    if ok:
+        USAGE["calls"] += 1
+    else:
+        USAGE["errors"] += 1
+
+
 def transcribe(cfg, media: Path) -> dict:
     """Return {"text": str, "words": [{"word", "start", "end"}]}. Never raises; empty on failure."""
     w = cfg["whisper"]
@@ -77,16 +92,22 @@ def transcribe(cfg, media: Path) -> dict:
     use_groq = backend in ("auto", "groq") and bool(os.environ.get("GROQ_API_KEY"))
     if use_groq:
         try:
-            return _normalize(_groq(media, w), duration)
+            out = _normalize(_groq(media, w), duration)
+            _note("groq")
+            return out
         except Exception as e:
+            _note("groq", ok=False)
             log.warning("Groq whisper failed (%s), using local", str(e)[:120])
             if backend == "groq":
                 pass
     elif backend == "groq":
         log.warning("whisper.backend=groq but no GROQ_API_KEY, using local")
     try:
-        return _normalize(_local(media, w), duration)
+        out = _normalize(_local(media, w), duration)
+        _note("local")
+        return out
     except Exception as e:
+        _note("local", ok=False)
         log.error("local whisper failed: %s", e)
         return {"text": "", "words": []}
 

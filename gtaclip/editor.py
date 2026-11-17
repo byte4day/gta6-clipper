@@ -69,25 +69,47 @@ def process_clip(cfg, llm: LLM, clip_dir: Path, info: dict) -> dict:
     """info: streamer, platform, trigger, reason, title, category, chat (list[str]). Writes meta.json."""
     raw = clip_dir / "raw.mp4"
     meta_path = clip_dir / "meta.json"
-    meta = {**info, "status": "transcribing"}
+    t_all = time.time()
+    meta = {**info, "status": "transcribing", "render_eta_s": _eta_seconds(info.get("length") or 30)}
     meta_path.write_text(json.dumps(meta, indent=2))
 
     duration = probe_duration(raw)
+    t0 = time.time()
     tr = transcribe(cfg, raw)
+    t_whisper = time.time() - t0
     (clip_dir / "transcript.json").write_text(json.dumps(tr, indent=2))
-    meta.update(status="writing", duration=round(duration, 2), transcript=tr["text"])
+    meta.update(status="writing", duration=round(duration, 2), transcript=tr["text"],
+                timings={"whisper_s": round(t_whisper, 1)})
     meta_path.write_text(json.dumps(meta, indent=2))
 
+    t0 = time.time()
     pkg = clip_metadata(llm, info["streamer"], f"{info['trigger']}: {info.get('reason', '')}", tr["text"],
                         info.get("chat", []), info.get("title", ""), info.get("category", ""))
+    t_llm = time.time() - t0
     meta.update(pkg)
     meta["status"] = "rendering"
+    meta.setdefault("timings", {})["llm_s"] = round(t_llm, 1)
     meta_path.write_text(json.dumps(meta, indent=2))
 
-    meta["style"] = cfg["edit"].get("caption_style", "gta")
+    meta["style"] = info.get("style") or cfg["edit"].get("caption_style", "gta")
+    t0 = time.time()
     render_outputs(cfg, clip_dir, meta, tr, duration)
-    log.info("✔ clip ready: %s — %s", clip_dir.relative_to(clip_dir.parent.parent), pkg.get("title"))
+    t_render = time.time() - t0
+    meta.setdefault("timings", {}).update({
+        "render_s": round(t_render, 1),
+        "total_s": round(time.time() - t_all, 1),
+    })
+    meta["render_seconds"] = meta["timings"]["total_s"]
+    meta_path.write_text(json.dumps(meta, indent=2))
+    log.info("✔ clip ready: %s — %s (%.1fs)", clip_dir.relative_to(clip_dir.parent.parent),
+             pkg.get("title"), meta["render_seconds"])
     return meta
+
+
+def _eta_seconds(length: float) -> float:
+    """Rough wall-clock estimate so the dashboard can show render time up front."""
+    length = max(5.0, float(length or 30))
+    return round(8 + length * 1.15, 0)  # whisper+llm ~8s + ~1.15× realtime encode
 
 
 def write_post(clip_dir: Path, meta: dict) -> None:

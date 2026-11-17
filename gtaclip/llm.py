@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 
 import requests
@@ -50,9 +51,31 @@ class LLM:
         models["openrouter"] = or_model or DEFAULT_MODELS["openrouter"]
         self.models = models
         self.cooldown: dict[str, float] = {}  # provider -> retry-after timestamp
+        self._usage_lock = threading.Lock()
+        self.usage: dict[str, dict] = {
+            p: {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "errors": 0, "last": None}
+            for p in PROVIDERS
+        }
+        self.usage["whisper"] = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "errors": 0, "last": None}
 
     def available(self) -> list[str]:
         return [p for p in self.order if os.environ.get(PROVIDERS[p][1])]
+
+    def usage_snapshot(self) -> dict:
+        with self._usage_lock:
+            return {k: dict(v) for k, v in self.usage.items() if v["calls"] or v["errors"]}
+
+    def note_usage(self, provider: str, *, prompt: int = 0, completion: int = 0, ok: bool = True) -> None:
+        with self._usage_lock:
+            u = self.usage.setdefault(
+                provider, {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "errors": 0, "last": None})
+            if ok:
+                u["calls"] += 1
+                u["prompt_tokens"] += max(0, int(prompt))
+                u["completion_tokens"] += max(0, int(completion))
+            else:
+                u["errors"] += 1
+            u["last"] = int(time.time())
 
     def chat(self, system: str, user: str, temperature: float = 0.7, max_tokens: int = 600) -> str | None:
         for p in self.available():
@@ -68,9 +91,9 @@ class LLM:
             }
             headers = {"Authorization": f"Bearer {os.environ[env]}", "Content-Type": "application/json"}
             if p == "openrouter":
-                # Stay on free models only; OpenRouter tries the next id when one is busy
+                # Stay on free models only; OpenRouter allows at most 3 ids in `models`
                 free = [model] + [m for m in OPENROUTER_FREE_FALLBACKS if m != model]
-                body["models"] = free
+                body["models"] = free[:3]
                 headers["HTTP-Referer"] = "https://github.com/byte4day/gta6-clipper"
                 headers["X-Title"] = "GTA 6 Clipper"
             try:
@@ -78,22 +101,30 @@ class LLM:
                 if r.status_code == 429:
                     wait = float(r.headers.get("retry-after", 30) or 30)
                     self.cooldown[p] = time.time() + min(wait, 300)
+                    self.note_usage(p, ok=False)
                     log.warning("%s rate-limited, next provider", p)
                     continue
                 if r.status_code >= 400:
                     detail = (r.text or "")[:160].replace("\n", " ")
                     log.warning("%s HTTP %s: %s", p, r.status_code, detail)
                     self.cooldown[p] = time.time() + (60 if r.status_code == 404 else 20)
+                    self.note_usage(p, ok=False)
                     continue
-                msg = (r.json().get("choices") or [{}])[0].get("message") or {}
+                data = r.json()
+                msg = (data.get("choices") or [{}])[0].get("message") or {}
                 text = _message_text(msg)
+                usage = data.get("usage") or {}
                 if text:
+                    self.note_usage(p, prompt=usage.get("prompt_tokens", 0),
+                                    completion=usage.get("completion_tokens", 0))
                     return text
                 # Free reasoning models often spend the whole budget on reasoning and leave content empty
+                self.note_usage(p, ok=False)
                 log.warning("%s empty content (model=%s)", p, model)
             except Exception as e:  # network/provider errors -> try next provider
                 log.warning("%s failed: %s", p, str(e)[:160])
                 self.cooldown[p] = time.time() + 20
+                self.note_usage(p, ok=False)
         return None
 
     def json(self, system: str, user: str, **kw) -> dict | None:

@@ -16,7 +16,7 @@ from .avatars import avatar_path
 from . import core
 from .config import FONTS_DIR, set_env_key
 from .captions import STYLES
-from .editor import rerender, write_post
+from .editor import _eta_seconds, rerender, write_post
 from .llm import LLM, PROVIDERS
 from . import socials
 
@@ -57,7 +57,7 @@ EDITABLE = {
     "edit": {"caption_style": (str, ["gta", "bold", "mrbeast", "minimal"]), "words_per_caption": (int, None),
              "formats": (list, ["vertical", "landscape"]), "vertical_zoom": (float, None),
              "watermark": (bool, None), "progress_bar": (bool, None)},
-    "general": {"record_mode": (str, ["always", "gta_only"]), "max_recordings": (int, None),
+    "general": {"record_mode": (str, ["manual", "always", "gta_only"]), "max_recordings": (int, None),
                 "recorder": (str, ["browser", "streamlink"]), "quality": (str, ["1080p60,best", "720p60,720p,best", "480p,best", "best"])},
     "llm": {"ai_scan": (bool, None), "ai_min_score": (int, None), "scan_seconds": (int, None)},
     "whisper": {"backend": (str, ["auto", "groq", "local"]), "local_model": (str, ["tiny", "base", "small", "medium", "large-v3"]),
@@ -87,9 +87,19 @@ def settings_payload(app) -> dict:
     current = {sec: {k: cfg[sec].get(k) for k in keys} for sec, keys in EDITABLE.items()}
     choices = {sec: {k: v[1] for k, v in keys.items() if v[1]} for sec, keys in EDITABLE.items()}
     port = int(cfg["general"].get("dashboard_port", 8787))
+    usage = app.llm.usage_snapshot()
+    wh = transcribe.usage_snapshot()
+    if wh.get("calls") or wh.get("errors"):
+        usage["whisper"] = {
+            "calls": wh.get("calls", 0), "errors": wh.get("errors", 0),
+            "prompt_tokens": 0, "completion_tokens": 0, "last": wh.get("last"),
+            "backend": wh.get("last_backend") or "",
+        }
     return {"providers": providers, "settings": current, "choices": choices,
             "streamers": [{"platform": s.platform, "name": s.name, "key": s.key, "enabled": s.enabled} for s in cfg.streamers],
-            "socials": socials.status_payload(cfg, port)}
+            "socials": socials.status_payload(cfg, port),
+            "usage": usage,
+            "clip_eta": {str(s): _eta_seconds(s) for s in (15, 30, 60, 90)}}
 
 
 def coerce(typ, allowed, v):
@@ -118,11 +128,14 @@ def make_handler(app):
 
         def _json(self, obj, code=200):
             body = json.dumps(obj).encode()
-            self.send_response(code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
 
         def _file(self, path: Path, root: Path, cache: bool = True):
             path = path.resolve()
@@ -266,15 +279,27 @@ def make_handler(app):
                     secs = float(body["seconds"]) if body.get("seconds") else None
                     if secs is not None and not 5 <= secs <= 180:
                         raise ValueError("seconds must be 5-180")
-                    ok = app.manual(m.group(1), secs)
+                    style = body.get("style")
+                    if style is not None and style not in STYLES:
+                        raise ValueError("style must be gta / bold / mrbeast / minimal")
+                    ok = app.manual(m.group(1), secs, style=style)
                     label = f"last {int(secs)}s" if secs else "last 35s"
-                    return self._json({"ok": ok, "msg": f"✂ clipping {label}" if ok else "not recording right now"}, 200 if ok else 409)
+                    eta = int(_eta_seconds(secs or 35))
+                    msg = f"✂ clipping {label} · ~{eta}s render" if ok else "not recording right now"
+                    return self._json({"ok": ok, "msg": msg, "eta_s": eta if ok else None}, 200 if ok else 409)
                 if m := re.fullmatch(r"/api/(record|stoprec)/([\w.@-]+)", p):
                     if m.group(1) == "record":
                         ok = app.record_now(m.group(2))
-                        return self._json({"ok": ok, "msg": "starting recording…" if ok else "streamer not found / paused"})
+                        w = app.find(m.group(2))
+                        if ok and w and w.live:
+                            msg = "recording started"
+                        elif ok:
+                            msg = "selected — will record when they go live"
+                        else:
+                            msg = "streamer not found / paused"
+                        return self._json({"ok": ok, "msg": msg})
                     ok = app.stop_recording(m.group(2))
-                    return self._json({"ok": ok, "msg": "recording stopped" if ok else "not recording"})
+                    return self._json({"ok": ok, "msg": "stopped" if ok else "not recording / not selected"})
                 if m := re.fullmatch(r"/api/clips/([\w.@-]+/[\w.-]+)/(meta|rerender)", p):
                     d = (out / m.group(1)).resolve()
                     if not d.is_relative_to(out) or not (d / "meta.json").exists():

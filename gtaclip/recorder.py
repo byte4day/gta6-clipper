@@ -363,7 +363,7 @@ class Recorder:
         segs = self.segments()
         return segs[0][0] if segs else 0.0
 
-    def live_playlist(self, n: int = 8) -> str:
+    def live_playlist(self, n: int = 5) -> str:
         """Rolling HLS playlist of the buffer (for the dashboard's live preview player)."""
         files = self._files()[:-1][-n:]
         if not files:
@@ -441,7 +441,7 @@ class Recorder:
                     self._forget_seg(p.name, idx)
             busy = encoding()  # while a clip encodes, skip extra ffmpeg so live pullers keep CPU/IO
             try:
-                if not busy and time.time() - self._last_preview > 4:
+                if not busy and time.time() - self._last_preview > 2.5:
                     self._last_preview = time.time()
                     self._make_preview(segs[-1][2])
             except (subprocess.SubprocessError, OSError):

@@ -11,7 +11,7 @@ live_check_seconds = 20       # fast Rust page check of every streamer (needs co
 quality = "720p60,720p,best"  # stream quality order (first available wins)
 recorder = "browser"          # browser = headless Chrome captures the stream (Twitch; YouTube auto-falls back) | streamlink
 max_recordings = 6            # max streams recorded at once (bandwidth/disk guard)
-record_mode = "always"        # "always" = record any live stream, "gta_only" = only while category/title is GTA
+record_mode = "manual"        # "manual" = you pick who to record · "always" = any live stream · "gta_only" = only while category/title is GTA
 clip_workers = 1              # keep at 1 so a render cannot starve live YouTube/Twitch recorders
 dashboard_port = 8787
 

@@ -61,7 +61,7 @@ h2 { font: 24px Anton, Impact, sans-serif; letter-spacing: .5px; margin: 0; font
 .who .ring .av { width: 62px; height: 62px; font-size: 22px; }
 .who .n { font-weight: 700; font-size: 12px; max-width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .who .s { font-size: 10px; font-weight: 800; letter-spacing: .5px; color: var(--dim); text-transform: uppercase; margin-top: -4px; }
-.who.live .s { color: var(--live); } .who.dis { opacity: .35; }
+.who.live .s { color: var(--live); } .who.want .s { color: var(--pink); } .who.dis { opacity: .35; }
 .divider { width: 1px; background: var(--line); flex: none; margin: 8px 6px 26px; }
 
 .tiles { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
@@ -228,9 +228,9 @@ h2 .hic .ic { width: 16px; height: 16px; vertical-align: 0; }
       <div>
         <div class="player"><video id="live-video" muted autoplay playsinline controls></video><div class="note" id="live-note">connecting…</div></div>
         <div class="livebar">
-          <span class="small row" style="font-weight:800;gap:6px"><svg class="ic" aria-hidden="true"><use href="#i-scissors"/></svg>Clip the last</span>
-          <button class="sm" onclick="clipLive(15)">15s</button><button class="sm" onclick="clipLive(30)">30s</button>
-          <button class="sm" onclick="clipLive(60)">60s</button><button class="sm" onclick="clipLive(90)">90s</button>
+          <span class="small row" style="font-weight:800;gap:6px"><svg class="ic" aria-hidden="true"><use href="#i-scissors"/></svg>Manual cut</span>
+          <button class="sm" onclick="openCut(LIVE,15)">15s</button><button class="sm" onclick="openCut(LIVE,30)">30s</button>
+          <button class="sm" onclick="openCut(LIVE,60)">60s</button><button class="sm" onclick="openCut(LIVE,90)">90s</button>
           <div class="spacer"></div>
           <button class="ghost sm" onclick="const v=$('#live-video');v.muted=!v.muted;this.innerHTML=v.muted?ICON_UNMUTE:ICON_MUTE"><svg class="ic" aria-hidden="true"><use href="#i-mute"/></svg>Unmute</button>
         </div>
@@ -245,6 +245,18 @@ h2 .hic .ic { width: 16px; height: 16px; vertical-align: 0; }
 
 <div class="modal" id="m-clip" onclick="if(event.target===this)closeClip()">
   <div class="sheet"><div class="mhead" id="clip-head"></div><div class="clip-grid"><div class="vid" id="clip-vid"></div><div class="editor" id="clip-ed"></div></div></div>
+</div>
+
+<div class="modal" id="m-cut" onclick="if(event.target===this)closeCut()">
+  <div class="sheet" style="max-width:520px">
+    <div class="mhead"><b class="grow" id="cut-title">Manual cut</b><button class="ghost sm" aria-label="Close" onclick="closeCut()"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div style="padding:16px 18px 20px;display:grid;gap:14px">
+      <div class="small" id="cut-eta">Pick a caption design. Render time is estimated from clip length.</div>
+      <div><b style="display:block;margin-bottom:8px">Caption design</b><div class="styles" id="cut-styles"></div></div>
+      <div class="actions"><button id="cut-go" onclick="confirmCut()"><svg class="ic" aria-hidden="true"><use href="#i-scissors"/></svg>Cut &amp; render</button>
+        <button class="ghost" onclick="closeCut()">Cancel</button></div>
+    </div>
+  </div>
 </div>
 
 <div id="scrim" onclick="closeDrawer()"></div>
@@ -272,6 +284,36 @@ const ICON_MUTE = ic("volume") + "Mute", ICON_UNMUTE = ic("mute") + "Unmute";
 const PROV = {groq: "Groq", openrouter: "OpenRouter", cerebras: "Cerebras", gemini: "Google Gemini", mistral: "Mistral"};
 const STY = {gta: ["Bebas", "#ff3ea5", "GTA"], bold: ["Anton", "#ffe500", "Bold"], mrbeast: ["Luckiest", "#39ff14", "MrBeast"], minimal: ["Montserrat", "#fff266", "Minimal"]};
 const STATUS_TXT = {transcribing: "Writing captions…", writing: "AI is writing the title…", rendering: "Rendering video…"};
+const etaLabel = (c) => {
+  if (c.status === "done" && (c.render_seconds || c.timings?.total_s))
+    return `rendered in ${Math.round(c.render_seconds || c.timings.total_s)}s`;
+  if (c.render_eta_s) return `~${Math.round(c.render_eta_s)}s left`;
+  return "";
+};
+let CUT = {key: null, sec: 30, style: "gta"};
+function cutEta(sec) {
+  const fromSet = SET?.clip_eta?.[String(sec)];
+  return fromSet || Math.round(8 + Math.max(5, sec) * 1.15);
+}
+function openCut(key, sec) {
+  if (!key) return;
+  CUT = {key, sec, style: (SET?.settings?.edit?.caption_style) || EDIT_STYLE || "gta"};
+  $("#cut-title").textContent = `Cut last ${sec}s`;
+  $("#cut-eta").textContent = `Caption design for this clip · estimated render ~${cutEta(sec)}s (Whisper + AI title + encode).`;
+  $("#cut-styles").innerHTML = styleCards(CUT.style, "pickCutStyle");
+  $("#m-cut").classList.add("show");
+}
+function pickCutStyle(k) { CUT.style = k; $("#cut-styles").innerHTML = styleCards(k, "pickCutStyle"); }
+function closeCut() { $("#m-cut").classList.remove("show"); CUT.key = null; }
+async function confirmCut() {
+  if (!CUT.key) return;
+  const btn = $("#cut-go"); btn.disabled = true;
+  const j = await api(`/api/clip/${CUT.key}`, "POST", {seconds: CUT.sec, style: CUT.style});
+  btn.disabled = false;
+  if (j.msg) toast(j.msg);
+  closeCut();
+  if (j.ok) { lastSig = ""; setTimeout(loadClips, 600); }
+}
 
 async function api(path, method = "POST", body) {
   const r = await fetch(path, {method, headers: {"Content-Type": "application/json", "X-Clipper": "1"}, body: body ? JSON.stringify(body) : undefined});
@@ -336,9 +378,9 @@ async function status() {
   $("#s-core").innerHTML = ST.core ? `<span class="dot ok"></span>Rust core` : `<span class="dot"></span>Python mode`;
   $("#s-llm").innerHTML = ST.llm.length ? `<span class="dot ok"></span>AI: ${esc(ST.llm.join(" → "))}` : `<span class="dot"></span>AI: add a key in Settings`;
   $("#roster-note").textContent = `${online.length} online · ${off.length} offline`;
-  const who = s => `<button id="who-${esc(s.key)}" class="who ${s.live ? "live" : ""} ${s.enabled ? "" : "dis"}" title="${esc(s.live ? s.title : s.status)}" onclick="${s.recording ? `openLive('${esc(s.key)}')` : s.live ? `document.getElementById('tile-${esc(s.key)}')?.scrollIntoView({block:'nearest'})` : `openDrawer('streamers')`}">
+  const who = s => `<button id="who-${esc(s.key)}" class="who ${s.live ? "live" : ""} ${s.want_record && !s.recording ? "want" : ""} ${s.enabled ? "" : "dis"}" title="${esc(s.live ? s.title : s.status)}" onclick="${s.recording ? `openLive('${esc(s.key)}')` : s.live ? `document.getElementById('tile-${esc(s.key)}')?.scrollIntoView({block:'nearest'})` : `startRec('${esc(s.key)}')`}">
       <div class="ring ${s.live ? "live" : ""} ${s.recording ? "rec" : ""}">${avatar(s.key, s.name, s.live ? "" : "off", s.avatar)}</div>
-      <div class="n">${esc(s.name)}</div><div class="s">${s.live ? "● " + (dur(since(s)) || "live") : s.enabled ? "offline" : "paused"}</div></button>`;
+      <div class="n">${esc(s.name)}</div><div class="s">${s.recording ? "● REC" : s.live ? "● " + (dur(since(s)) || "live") : s.want_record ? "queued" : s.enabled ? "offline" : "paused"}</div></button>`;
   const roster = all.length ? online.map(who).join("") + (online.length && off.length ? '<div class="divider" id="roster-div"></div>' : "") + off.map(who).join("")
     : '<div class="empty" id="roster-empty">No streamers yet. Add some in Settings → Streamers.</div>';
   if (roster !== ROSTER_HTML) { ROSTER_HTML = roster; setHTML($("#roster"), roster); }
@@ -366,12 +408,26 @@ function tileHTML(s) {
       <svg class="spark" viewBox="0 0 300 40" preserveAspectRatio="none">${sparkPath(s.spark)}</svg>` : ""}
       <div class="events">${s.events.slice(-3).reverse().map(esc).join("<br>") || "&nbsp;"}</div>
       <div class="actions">${s.recording
-        ? `<button class="sm" onclick="openLive('${k}')">${ic("play")}Watch + chat</button><button class="sm ghost" onclick="clipNow('${k}',30)">${ic("scissors")}30s</button><button class="sm ghost" onclick="clipNow('${k}',60)">${ic("scissors")}60s</button>
-           <div class="spacer"></div><button class="sm danger" title="Stop recording until this stream ends" onclick="api('/api/stoprec/${k}').then(status)">${ic("stop")}Stop</button>`
-        : `<button class="sm" onclick="api('/api/record/${k}').then(status)">${ic("rec")}Record anyway</button><a class="small row" style="gap:4px" href="${esc(s.url)}" target="_blank" rel="noopener">open${ic("external")}</a>`}</div>
+        ? `<button class="sm" onclick="openLive('${k}')">${ic("play")}Watch + chat</button><button class="sm ghost" onclick="openCut('${k}',30)">${ic("scissors")}30s</button><button class="sm ghost" onclick="openCut('${k}',60)">${ic("scissors")}60s</button>
+           <div class="spacer"></div><button class="sm danger" title="Stop recording" onclick="stopRec('${k}')">${ic("stop")}Stop</button>`
+        : `<button class="sm" onclick="startRec('${k}')">${ic("rec")}Start recording</button><a class="small row" style="gap:4px" href="${esc(s.url)}" target="_blank" rel="noopener">open${ic("external")}</a>`}</div>
     </div></div>`;
 }
-async function clipNow(key, seconds) { await api(`/api/clip/${key}`, "POST", seconds ? {seconds} : undefined); }
+async function startRec(key) {
+  const j = await api(`/api/record/${key}`);
+  if (j.msg) toast(j.msg);
+  await status();
+}
+async function stopRec(key) {
+  const j = await api(`/api/stoprec/${key}`);
+  if (j.msg) toast(j.msg);
+  await status();
+}
+async function clipNow(key, seconds, style) {
+  const j = await api(`/api/clip/${key}`, "POST", {seconds, style});
+  if (j.msg) toast(j.msg);
+  return j;
+}
 function renderFeed() {
   const items = [];
   for (const s of ST.streamers) for (const e of s.events) items.push({s, t: e.slice(0, 8), m: e.slice(9)});
@@ -428,8 +484,8 @@ function renderClips() {
     return `<div class="clip ${c._new ? "new" : ""}" id="${id}" onclick="openClip('${dir}')" ${ready ? `onmouseenter="hoverPlay(this,'/files/${dir}/${esc(main)}?v=${v}')" onmouseleave="hoverStop(this)"` : ""}>
       <div class="cv">${ready ? `<img src="/files/${dir}/thumb.jpg?v=${v}" alt="" loading="lazy">`
         : c.status === "error" ? `<div class="proc">${ic("alert")}<div>${esc(c.error || "failed")}</div></div>`
-        : `<div class="proc"><div class="spin"></div><div>${esc(STATUS_TXT[c.status] || "Cutting clip…")}</div></div>`}
-        <div class="badges"><span class="pill">${lab(c.trigger)}</span>${c.duration ? `<span class="pill">${Math.round(c.duration)}s</span>` : ""}</div></div>
+        : `<div class="proc"><div class="spin"></div><div>${esc(STATUS_TXT[c.status] || "Cutting clip…")}</div><div class="small">${c.render_eta_s ? `~${Math.round(c.render_eta_s)}s` : "working…"}</div></div>`}
+        <div class="badges"><span class="pill">${lab(c.trigger)}</span>${c.duration ? `<span class="pill">${Math.round(c.duration)}s</span>` : ""}${etaLabel(c) ? `<span class="pill soft">${esc(etaLabel(c))}</span>` : ""}</div></div>
       <div class="cb"><div class="t">${esc(c.title || c.reason || "")}</div>
         <div class="row small">${avatar(c.streamer.toLowerCase(), c.streamer)}<span class="ell grow">${esc(c.streamer)}</span><span>${c.started ? ago(c.started) : ""}</span>
           <button class="del" title="Delete clip" aria-label="Delete clip" onclick="event.stopPropagation(); quickDelete('${dir}', this)">${ic("trash")}</button></div></div></div>`;
@@ -454,8 +510,12 @@ function openClip(dir, refresh) {
   OPEN_CLIP = dir; OPEN_STATUS = c.status; OPEN_V = c.rendered; if (!refresh) EDIT_STYLE = c.style || "gta";
   const ready = c.status === "done" && c.outputs, main = ready && (c.outputs.vertical || Object.values(c.outputs)[0]), v = c.rendered || 0, d = esc(c.dir);
   $("#clip-head").innerHTML = `${avatar(c.streamer.toLowerCase(), c.streamer)}<div class="grow"><b>${esc(c.streamer)}</b> <span class="small">· ${lab(c.trigger)} · ${c.started ? esc(new Date(c.started).toLocaleString()) : ""}</span></div><button class="ghost sm" aria-label="Close" onclick="closeClip()">${ic("x")}</button>`;
+  const timing = c.timings || {};
+  const renderNote = c.render_seconds || timing.total_s
+    ? `Rendered in ${Math.round(c.render_seconds || timing.total_s)}s` + (timing.whisper_s != null ? ` · whisper ${timing.whisper_s}s · AI ${timing.llm_s || 0}s · encode ${timing.render_s || 0}s` : "")
+    : (c.render_eta_s ? `Estimated ~${Math.round(c.render_eta_s)}s` : "about 20–40 s");
   $("#clip-vid").innerHTML = ready ? `<video src="/files/${d}/${esc(main)}?v=${v}" controls autoplay playsinline></video>`
-    : `<div style="aspect-ratio:9/16;width:100%;display:grid;place-items:center;color:var(--mute);font-weight:700;text-align:center"><div><div class="spin"></div><p>${esc(STATUS_TXT[c.status] || c.status)}</p></div></div>`;
+    : `<div style="aspect-ratio:9/16;width:100%;display:grid;place-items:center;color:var(--mute);font-weight:700;text-align:center"><div><div class="spin"></div><p>${esc(STATUS_TXT[c.status] || c.status)}</p><p class="small" style="margin-top:8px">${esc(renderNote)}</p></div></div>`;
   if (refresh && document.activeElement && $("#clip-ed").contains(document.activeElement)) return;  // don't wipe what you're typing
   const post = `${c.title || ""}\n\n${c.caption || ""}\n\n${(c.hashtags || []).join(" ")}`;
   $("#clip-ed").innerHTML = `
@@ -468,9 +528,10 @@ function openClip(dir, refresh) {
       ${ready ? Object.entries(c.outputs).map(([k, f]) => `<a class="small" href="/files/${d}/${esc(f)}" download>${ic("download")}${esc(k)}</a>`).join(" ") + ` <a class="small" href="/files/${d}/raw.mp4" download>${ic("download")}raw</a>` : ""}</div>
     ${ready ? uploadBox(c) : ""}
     <div class="box"><b>Caption design</b><div class="styles" id="e-styles">${styleCards(EDIT_STYLE, "pickStyle")}</div>
-      <div class="actions"><button onclick="rerenderClip()" ${ready || c.status === "error" ? "" : "disabled"}>${ic("refresh")}Re-render with this style + hook</button><span class="small">about 30 s, keeps the captions</span></div></div>
+      <div class="actions"><button onclick="rerenderClip()" ${ready || c.status === "error" ? "" : "disabled"}>${ic("refresh")}Re-render with this style + hook</button><span class="small">${esc(renderNote)}</span></div></div>
     <div class="box"><b>Why it was clipped</b><div class="kv"><b>Trigger</b><span>${lab(c.trigger)}</span><b>Reason</b><span>${esc(c.reason || "")}</span>
       <b>Length</b><span>${c.duration ? c.duration + " s" : "—"}</span>${c.score != null ? `<b>AI viral score</b><span>${esc(c.score)}/10</span>` : ""}
+      <b>Render time</b><span>${c.render_seconds || timing.total_s ? Math.round(c.render_seconds || timing.total_s) + " s" : "—"}</span>
       <b>Game</b><span>${esc(c.category || "—")}</span><b>Stream title</b><span>${esc(c.title_stream || "")}</span></div></div>
     <div class="box"><b>Transcript</b><div class="transcript">${esc(c.transcript || "(no speech detected)")}</div></div>
     ${(c.chat || []).length ? `<div class="box"><b>Chat during the clip</b><div class="transcript" style="font-size:12px">${c.chat.map(l => { const i = l.indexOf(": ");
@@ -500,14 +561,16 @@ async function openLive(key) {
   try { await loadHls(); } catch (e) {}
   if (LIVE !== key) return;
   if (window.Hls && Hls.isSupported()) {
-    HLS = new Hls({liveSyncDurationCount: 2, manifestLoadingRetryDelay: 1500, manifestLoadingMaxRetry: 20});
+    // Keep closer to the live edge so Watch + chat feels nearer real-time.
+    HLS = new Hls({liveSyncDurationCount: 1, liveMaxLatencyDurationCount: 3, maxLiveSyncPlaybackRate: 1.5,
+      manifestLoadingRetryDelay: 800, manifestLoadingMaxRetry: 30, enableWorker: true});
     HLS.loadSource(src); HLS.attachMedia(v);
     HLS.on(Hls.Events.MANIFEST_PARSED, () => { v.play().catch(() => {}); note.style.display = "none"; });
     HLS.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) { note.style.display = ""; note.textContent = "buffering, retrying…";
-      setTimeout(() => { if (LIVE === key && HLS) { HLS.recoverMediaError(); HLS.loadSource(src); } }, 3000); } });
+      setTimeout(() => { if (LIVE === key && HLS) { HLS.recoverMediaError(); HLS.loadSource(src); } }, 1500); } });
   } else if (v.canPlayType("application/vnd.apple.mpegurl")) { v.src = src; note.style.display = "none"; }
   else note.textContent = "The live player needs internet once (hls.js). Previews and chat still work.";
-  pollChat(); CHAT_TIMER = setInterval(pollChat, 1500);
+  pollChat(); CHAT_TIMER = setInterval(pollChat, 1000);
 }
 function updateLiveHead() {
   const s = ST.streamers.find(x => x.key === LIVE); if (!s) return;
@@ -530,7 +593,7 @@ async function pollChat() {
   while (log.children.length > 250) log.firstChild.remove();
   if (atBottom) log.scrollTop = log.scrollHeight;
 }
-async function clipLive(sec) { if (LIVE) await clipNow(LIVE, sec); }
+async function clipLive(sec) { if (LIVE) openCut(LIVE, sec); }
 function closeLive() { $("#m-live").classList.remove("show"); clearInterval(CHAT_TIMER); LIVE = null;
   if (HLS) { HLS.destroy(); HLS = null; } const v = $("#live-video"); v.removeAttribute("src"); v.load(); }
 
@@ -538,7 +601,7 @@ function closeLive() { $("#m-live").classList.remove("show"); clearInterval(CHAT
 let SET = null, TAB = "keys";
 async function openDrawer(t) { document.body.classList.add("drawer"); await loadSettings(); tab(t || TAB); }
 function closeDrawer() { document.body.classList.remove("drawer"); }
-document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); if (LIVE) closeLive(); if (OPEN_CLIP) closeClip(); } });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); closeCut(); if (LIVE) closeLive(); if (OPEN_CLIP) closeClip(); } });
 async function loadSettings() { SET = await (await fetch("/api/settings")).json(); }
 function tab(t) { TAB = t; document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t)); $("#dbody").innerHTML = {keys: keysTab, socials: socialsTab, streamers: streamersTab, clips: clipsTab}[t](); }
 async function refreshTab() { await loadSettings(); tab(TAB); }
@@ -629,8 +692,25 @@ async function toggleSocialTarget(p, on) {
   await setOpt("socials", "platforms", [...cur]);
 }
 
+function usageBox() {
+  const u = SET.usage || {};
+  const rows = Object.entries(u).filter(([, v]) => v && (v.calls || v.errors));
+  if (!rows.length) {
+    return `<div class="box"><b>AI usage (this run)</b><div class="small">No API calls yet. Titles, AI moments and Whisper captions show up here as you clip.</div></div>`;
+  }
+  const fmt = (n) => (n || 0).toLocaleString();
+  const when = (t) => t ? ago(new Date(t * 1000).toISOString()) : "—";
+  return `<div class="box"><b>AI usage (this run)</b>
+    <div class="kv">${rows.map(([id, v]) => {
+      const tokens = (v.prompt_tokens || 0) + (v.completion_tokens || 0);
+      const extra = id === "whisper" && v.backend ? ` · ${esc(v.backend)}` : (tokens ? ` · ${fmt(tokens)} tokens` : "");
+      return `<b>${esc(PROV[id] || id)}</b><span>${fmt(v.calls)} calls${v.errors ? ` · ${fmt(v.errors)} errors` : ""}${extra} · last ${when(v.last)}</span>`;
+    }).join("")}</div>
+    <div class="small">Counts reset when you restart the clipper. Free-tier providers; token totals come from each API when they report them.</div></div>`;
+}
 function keysTab() {
   return `<div class="small">Keys are saved to <b>.env</b> on this computer only and work right away, no restart. Clips use the first provider that works, top to bottom — all defaults are <b>free-tier</b> models. OpenRouter stays on <code>:free</code> models only. A Groq key also turns on fast cloud Whisper captions.</div>` +
+    usageBox() +
     SET.providers.map(p => `<div class="box">
       <div class="row between"><b>${esc(PROV[p.id] || p.id)}</b><span class="pill ${p.has_key ? "ok" : "soft"}">${p.has_key ? ic("check") + "key " + esc(p.masked) : "no key"}</span></div>
       <div class="two"><label class="f">API key<input type="password" id="k-${p.id}" placeholder="${p.has_key ? "paste to replace" : "paste key"}" autocomplete="off"></label><label class="f">Model<input id="m-${p.id}" value="${esc(p.model)}"></label></div>
@@ -651,10 +731,15 @@ function streamersTab() {
   return `<div class="box"><b>Add a streamer</b>
       <div class="row"><select id="add-plat" style="width:130px"><option value="twitch">Twitch</option><option value="youtube">YouTube</option></select>
         <input id="add-name" placeholder="xqc  ·  @IShowSpeed  ·  channel link" onkeydown="if(event.key==='Enter')addStreamer()"></div>
-      <button onclick="addStreamer()">+ Add &amp; start watching</button></div>
+      <button onclick="addStreamer()">+ Add streamer</button>
+      <div class="small">In <b>manual</b> mode (default), nobody records until you hit <b>Start</b> on a creator.</div></div>
     <div style="display:grid;gap:8px">${SET.streamers.map(s => { const w = st[s.key] || {};
-      return `<div class="srow"><div class="ring ${w.live ? "live" : ""}">${avatar(s.key, s.name, w.live ? "" : "off", w.avatar)}</div>
-        <div class="grow"><b>${esc(s.name.replace("@", ""))}</b><div class="small">${esc(s.platform)} · ${w.recording ? "recording" : w.live ? "online" : s.enabled ? "offline" : "paused"}</div></div>
+      const state = w.recording ? "recording" : w.live ? "online — tap Start" : w.want_record ? "queued for next live" : s.enabled ? "offline" : "paused";
+      return `<div class="srow"><div class="ring ${w.live ? "live" : ""} ${w.recording ? "rec" : ""}">${avatar(s.key, s.name, w.live ? "" : "off", w.avatar)}</div>
+        <div class="grow"><b>${esc(s.name.replace("@", ""))}</b><div class="small">${esc(s.platform)} · ${esc(state)}</div></div>
+        ${w.recording || w.want_record
+          ? `<button class="danger sm" onclick="stopRec('${esc(s.key)}').then(() => refreshTab())">Stop</button>`
+          : s.enabled ? `<button class="sm" onclick="startRec('${esc(s.key)}').then(() => refreshTab())">${ic("rec")}Start</button>` : ""}
         <button class="ghost sm" onclick="toggleStreamer('${esc(s.key)}')">${s.enabled ? "Pause" : "Enable"}</button>
         <button class="danger sm" onclick="removeStreamer('${esc(s.key)}','${esc(s.name)}')">Remove</button></div>`; }).join("")}</div>`;
 }
@@ -681,9 +766,9 @@ function clipsTab() {
     <div class="box"><b>Recording</b><div class="two">
       <label class="f">Record with${sel("general", "recorder", {browser: "Headless browser (Chrome)", streamlink: "Streamlink"})}</label>
       <label class="f">Quality${sel("general", "quality", {"1080p60,best": "1080p60", "720p60,720p,best": "720p60", "480p,best": "480p (saves data)", best: "Best available"})}</label>
-      <label class="f">Record${sel("general", "record_mode", {always: "Any live stream", gta_only: "Only while playing GTA"})}</label>
+      <label class="f">Record${sel("general", "record_mode", {manual: "Manual — pick who to Start", always: "Any live stream", gta_only: "Only while playing GTA"})}</label>
       <label class="f">Max streams at once${num("general", "max_recordings")}</label></div>
-      <div class="small">Recorder and quality changes apply to the next recording that starts. YouTube always uses streamlink (its web player has no HLS).</div></div>
+      <div class="small">Manual mode: open a live tile or Settings → Streamers and hit <b>Start</b>. Offline creators you Start are queued until they go live. YouTube always uses streamlink.</div></div>
     <div class="box"><b>AI moment finder</b>
       <label class="check"><input type="checkbox" ${s.llm.ai_scan ? "checked" : ""} onchange="setOpt('llm','ai_scan',this.checked)">Let AI watch transcript + chat for clip-worthy moments</label>
       <div class="two"><label class="f">Clip when AI score ≥ (0-10)${num("llm", "ai_min_score")}</label><label class="f">Check every (seconds)${num("llm", "scan_seconds")}</label></div></div>
@@ -701,7 +786,7 @@ async function setFormat(f, on) { const fm = new Set(SET.settings.edit.formats |
 
 const whenVisible = fn => () => { if (!document.hidden) fn(); };
 setNotifyBtn(); status().then(refreshPreviews); loadClips();
-setInterval(whenVisible(status), 2500); setInterval(whenVisible(loadClips), 4000); setInterval(whenVisible(refreshPreviews), 5000);
+setInterval(whenVisible(status), 1500); setInterval(whenVisible(loadClips), 2500); setInterval(whenVisible(refreshPreviews), 3000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { status(); loadClips(); } });
 </script>
 </body>
