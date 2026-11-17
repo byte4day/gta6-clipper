@@ -41,11 +41,12 @@ scan_seconds = 40
 ai_min_score = 8              # 0-10, clip when the LLM scores >= this
 
 [llm.models]
-groq = "qwen/qwen3.8-27b"                          # Groq free tier
-openrouter = "particle-ai/particle-1:free"          # OpenRouter :free pool
-cerebras = "llama-3.3-70b"
-gemini = "gemini-2.5-flash"
-mistral = "mistral-small-latest"
+# All free-tier IDs. OpenRouter falls back across the :free list in llm.py.
+groq = "openai/gpt-oss-20b"                        # Groq free (fast); alt: qwen/qwen3.8-27b
+openrouter = "baidu/ernie-5.5-flash-preview:free"  # OpenRouter :free (reliable JSON)
+cerebras = "llama-3.3-70b"                         # Cerebras free tier
+gemini = "gemini-2.5-flash"                        # Google AI Studio free
+mistral = "mistral-small-latest"                   # Mistral free tier
 
 [detect]
 cooldown_seconds = 45         # min gap between auto clips of one streamer

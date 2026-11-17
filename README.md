@@ -126,8 +126,8 @@ Going live is also noticed faster: the 20 s Rust check wakes a streamer's watche
 <img src="assets/readme/h-config.svg" width="100%" alt="Mission 06: Settings and output">
 
 `config.toml` holds the defaults and the streamer list. Changes made in the dashboard go to `state/settings.json` and win over `config.toml`.
-API keys live in `.env` (chmod 600, never committed). AI providers are tried in order and all have free tiers:
-**Groq → OpenRouter → Cerebras → Gemini → Mistral**. Without any key, built-in templates write the titles.
+API keys live in `.env` (chmod 600, never committed). AI providers are tried in order on **free-tier models only**:
+**Groq (`openai/gpt-oss-20b`) → OpenRouter (`*:free`) → Cerebras → Gemini → Mistral**. OpenRouter never falls through to paid models. Without any key, built-in templates write the titles.
 
 | Setting | What it does |
 |---|---|

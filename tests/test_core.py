@@ -61,6 +61,25 @@ def test_settings_validation():
     assert coerce(str, ["public", "unlisted", "private"], "unlisted") == "unlisted"
 
 
+def test_llm_free_models_and_reasoning_text():
+    from gtaclip.llm import DEFAULT_MODELS, LLM, _message_text
+
+    class Cfg(dict):
+        def __getitem__(self, k):
+            return dict.__getitem__(self, k)
+
+    llm = LLM(Cfg({"llm": {"providers": ["groq", "openrouter"], "models": {
+        "groq": "openai/gpt-oss-20b",
+        "openrouter": "meta-llama/llama-3.3-70b-instruct",  # paid id must be forced free
+    }}}))
+    assert llm.models["openrouter"].endswith(":free")
+    assert llm.models["groq"] == "openai/gpt-oss-20b"
+    assert DEFAULT_MODELS["openrouter"].endswith(":free")
+    assert _message_text({"content": " hi "}) == "hi"
+    assert _message_text({"content": "", "reasoning": 'noise {"score": 9, "reason": "hype"} more'}) == \
+        '{"score": 9, "reason": "hype"}'
+
+
 def test_socials_post_helpers():
     from gtaclip.socials import TIKTOK_PRIVACY, _connected, _html_esc, description, post_text, redirect_uri
 

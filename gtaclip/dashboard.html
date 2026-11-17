@@ -630,7 +630,7 @@ async function toggleSocialTarget(p, on) {
 }
 
 function keysTab() {
-  return `<div class="small">Keys are saved to <b>.env</b> on this computer only and work right away, no restart. Clips use the first provider that works, top to bottom. A Groq key also turns on fast cloud Whisper captions.</div>` +
+  return `<div class="small">Keys are saved to <b>.env</b> on this computer only and work right away, no restart. Clips use the first provider that works, top to bottom — all defaults are <b>free-tier</b> models. OpenRouter stays on <code>:free</code> models only. A Groq key also turns on fast cloud Whisper captions.</div>` +
     SET.providers.map(p => `<div class="box">
       <div class="row between"><b>${esc(PROV[p.id] || p.id)}</b><span class="pill ${p.has_key ? "ok" : "soft"}">${p.has_key ? ic("check") + "key " + esc(p.masked) : "no key"}</span></div>
       <div class="two"><label class="f">API key<input type="password" id="k-${p.id}" placeholder="${p.has_key ? "paste to replace" : "paste key"}" autocomplete="off"></label><label class="f">Model<input id="m-${p.id}" value="${esc(p.model)}"></label></div>

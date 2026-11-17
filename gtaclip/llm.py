@@ -19,12 +19,36 @@ PROVIDERS = {
     "mistral": ("https://api.mistral.ai/v1", "MISTRAL_API_KEY"),
 }
 
+# Free-only OpenRouter chain (tried in order when the primary :free model is busy).
+OPENROUTER_FREE_FALLBACKS = [
+    "baidu/ernie-5.5-flash-preview:free",
+    "particle-ai/particle-1:free",
+    "recursive/flint-v1.0:free",
+    "nvidia/nemotron-3.5-lightning:free",
+]
+
+DEFAULT_MODELS = {
+    "groq": "openai/gpt-oss-20b",
+    "openrouter": "baidu/ernie-5.5-flash-preview:free",
+    "cerebras": "llama-3.3-70b",
+    "gemini": "gemini-2.5-flash",
+    "mistral": "mistral-small-latest",
+}
+
 
 class LLM:
     def __init__(self, cfg):
         llm = cfg["llm"]
         self.order = [p for p in llm.get("providers", PROVIDERS) if p in PROVIDERS]
-        self.models = llm.get("models", {})
+        models = dict(DEFAULT_MODELS)
+        models.update(llm.get("models") or {})
+        # Keep OpenRouter on the free pool even if someone pastes a paid id
+        or_model = (models.get("openrouter") or "").strip()
+        if or_model and not or_model.endswith(":free") and or_model != "openrouter/free":
+            log.warning("openrouter model %s is not :free — using %s", or_model, DEFAULT_MODELS["openrouter"])
+            or_model = DEFAULT_MODELS["openrouter"]
+        models["openrouter"] = or_model or DEFAULT_MODELS["openrouter"]
+        self.models = models
         self.cooldown: dict[str, float] = {}  # provider -> retry-after timestamp
 
     def available(self) -> list[str]:
@@ -35,18 +59,22 @@ class LLM:
             if self.cooldown.get(p, 0) > time.time():
                 continue
             base, env = PROVIDERS[p]
+            model = self.models.get(p) or DEFAULT_MODELS.get(p)
+            body: dict = {
+                "model": model,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            headers = {"Authorization": f"Bearer {os.environ[env]}", "Content-Type": "application/json"}
+            if p == "openrouter":
+                # Stay on free models only; OpenRouter tries the next id when one is busy
+                free = [model] + [m for m in OPENROUTER_FREE_FALLBACKS if m != model]
+                body["models"] = free
+                headers["HTTP-Referer"] = "https://github.com/byte4day/gta6-clipper"
+                headers["X-Title"] = "GTA 6 Clipper"
             try:
-                r = requests.post(
-                    f"{base}/chat/completions",
-                    headers={"Authorization": f"Bearer {os.environ[env]}", "Content-Type": "application/json"},
-                    json={
-                        "model": self.models.get(p),
-                        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                        "temperature": temperature,
-                        "max_tokens": max_tokens,
-                    },
-                    timeout=40,
-                )
+                r = requests.post(f"{base}/chat/completions", headers=headers, json=body, timeout=40)
                 if r.status_code == 429:
                     wait = float(r.headers.get("retry-after", 30) or 30)
                     self.cooldown[p] = time.time() + min(wait, 300)
@@ -58,11 +86,11 @@ class LLM:
                     self.cooldown[p] = time.time() + (60 if r.status_code == 404 else 20)
                     continue
                 msg = (r.json().get("choices") or [{}])[0].get("message") or {}
-                text = (msg.get("content") or "").strip()
+                text = _message_text(msg)
                 if text:
                     return text
                 # Free reasoning models often spend the whole budget on reasoning and leave content empty
-                log.warning("%s empty content (model=%s)", p, self.models.get(p))
+                log.warning("%s empty content (model=%s)", p, model)
             except Exception as e:  # network/provider errors -> try next provider
                 log.warning("%s failed: %s", p, str(e)[:160])
                 self.cooldown[p] = time.time() + 20
@@ -79,6 +107,21 @@ class LLM:
             return json.loads(m.group(0))
         except json.JSONDecodeError:
             return None
+
+
+def _message_text(msg: dict) -> str:
+    """Prefer content; fall back to a JSON blob buried in reasoning (common on free models)."""
+    text = (msg.get("content") or "").strip()
+    if text:
+        return text
+    reasoning = msg.get("reasoning") or msg.get("reasoning_content") or ""
+    if isinstance(reasoning, list):
+        reasoning = " ".join(
+            (x.get("text") if isinstance(x, dict) else str(x)) for x in reasoning
+        )
+    reasoning = str(reasoning)
+    m = re.search(r"\{[^{}]*\}", reasoning, re.S)
+    return (m.group(0).strip() if m else "")
 
 
 META_SYSTEM = (
