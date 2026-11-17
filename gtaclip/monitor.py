@@ -22,6 +22,7 @@ from .config import ROOT, Config, Streamer
 from .editor import process_clip
 from .llm import LLM, scan_moment
 from .recorder import STREAMLINK, Recorder
+from .socials import auto_upload_if_enabled
 from .transcribe import transcribe
 
 log = logging.getLogger("watch")
@@ -399,6 +400,7 @@ class App:
             })
             w.clip_count += 1
             w.note(f"✔ clip ready ({job.trigger})")
+            self.pool.submit(auto_upload_if_enabled, self, d)
         except Exception as e:
             log.exception("clip failed")
             (d / "meta.json").write_text(json.dumps({"streamer": w.s.display, "trigger": job.trigger,

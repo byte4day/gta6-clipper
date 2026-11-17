@@ -57,6 +57,27 @@ def test_settings_validation():
         coerce(str, ["gta", "bold"], "nope")
     with pytest.raises(ValueError):
         coerce(list, ["vertical"], [])
+    assert coerce(list, ["youtube", "tiktok", "instagram"], ["youtube", "myspace"]) == ["youtube"]
+    assert coerce(str, ["public", "unlisted", "private"], "unlisted") == "unlisted"
+
+
+def test_socials_post_helpers():
+    from gtaclip.socials import TIKTOK_PRIVACY, _connected, _html_esc, description, post_text, redirect_uri
+
+    title, caption, tags = post_text({
+        "title": "INSANE GTA 6 CRASH",
+        "caption": "bro what",
+        "hashtags": ["#gta6", "clips", "##viral"],
+        "streamer": "xqc",
+    })
+    assert title.startswith("INSANE")
+    assert tags == ["gta6", "clips", "viral"]
+    desc = description({"title": title, "caption": caption, "hashtags": ["#" + t for t in tags], "streamer": "xqc"})
+    assert "bro what" in desc and "#gta6" in desc and "xqc" in desc
+    assert redirect_uri(8787, "youtube").endswith("/api/socials/callback/youtube")
+    assert _connected({"refresh_token": "x"}) and not _connected({})
+    assert TIKTOK_PRIVACY["private"] == "SELF_ONLY"
+    assert "&lt;" in _html_esc("<script>")
 
 
 def test_hype_whole_words():

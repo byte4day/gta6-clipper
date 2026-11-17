@@ -18,6 +18,7 @@ from .config import FONTS_DIR, set_env_key
 from .captions import STYLES
 from .editor import rerender, write_post
 from .llm import LLM, PROVIDERS
+from . import socials
 
 
 def _safe_rerender(app, d, style):
@@ -63,6 +64,10 @@ EDITABLE = {
                 "language": (str, None)},
     "detect": {"chat_spike_ratio": (float, None), "audio_spike_db": (float, None), "cooldown_seconds": (int, None),
                "first_moment_seconds": (int, None)},
+    "socials": {"auto_upload": (bool, None), "platforms": (list, list(socials.PLATFORMS)),
+                "privacy": (str, ["public", "unlisted", "private"]),
+                "tiktok_privacy": (str, ["private", "public", "friends", "SELF_ONLY",
+                                         "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS"])},
 }
 
 
@@ -81,8 +86,10 @@ def settings_payload(app) -> dict:
                           "model": models.get(p, ""), "get_key": KEY_PAGES.get(p, "")})
     current = {sec: {k: cfg[sec].get(k) for k in keys} for sec, keys in EDITABLE.items()}
     choices = {sec: {k: v[1] for k, v in keys.items() if v[1]} for sec, keys in EDITABLE.items()}
+    port = int(cfg["general"].get("dashboard_port", 8787))
     return {"providers": providers, "settings": current, "choices": choices,
-            "streamers": [{"platform": s.platform, "name": s.name, "key": s.key, "enabled": s.enabled} for s in cfg.streamers]}
+            "streamers": [{"platform": s.platform, "name": s.name, "key": s.key, "enabled": s.enabled} for s in cfg.streamers],
+            "socials": socials.status_payload(cfg, port)}
 
 
 def coerce(typ, allowed, v):
@@ -192,6 +199,27 @@ def make_handler(app):
                 self._file(out / p[len("/files/"):], out)
             elif p == "/api/settings":
                 self._json(settings_payload(app))
+            elif p == "/api/socials":
+                self._json(socials.status_payload(app.cfg, port))
+            elif m := re.fullmatch(r"/api/socials/callback/(youtube|tiktok|instagram)", p):
+                qs = parse_qs(urlparse(self.path).query)
+                err = (qs.get("error_description") or qs.get("error") or [None])[0]
+                try:
+                    if err:
+                        raise ValueError(err)
+                    code = (qs.get("code") or [""])[0]
+                    state = (qs.get("state") or [""])[0]
+                    if not code or not state:
+                        raise ValueError("missing OAuth code")
+                    account = socials.finish_oauth(m.group(1), code, state, port)
+                    body = socials.connected_html(account)
+                except Exception as e:
+                    body = socials.connected_html("", error=str(e)[:300])
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
             elif m := re.fullmatch(r"/api/chat/([\w.@-]+)", p):
                 w = app.find(m.group(1))
                 since = float((parse_qs(urlparse(self.path).query).get("since") or [0])[0])
@@ -297,7 +325,41 @@ def make_handler(app):
                             app.cfg.set(sec, k, coerce(typ, allowed, v))
                             if sec == "whisper" and k == "local_model":
                                 transcribe._local_model = None  # reload with the new size on next clip
+                                transcribe._local_name = None
                     return self._json({"ok": True, "msg": "settings saved"})
+                if p == "/api/socials/creds":
+                    plat = body.get("platform")
+                    if plat not in socials.PLATFORMS:
+                        raise ValueError("unknown platform")
+                    cid = body.get("client_id")
+                    sec = body.get("client_secret")
+                    socials.save_app_creds(plat,
+                                          None if cid is None else str(cid),
+                                          None if sec is None else str(sec))
+                    return self._json({"ok": True, "msg": f"{plat} app saved"})
+                if p == "/api/socials/connect":
+                    plat = body.get("platform")
+                    if plat not in socials.PLATFORMS:
+                        raise ValueError("unknown platform")
+                    url = socials.start_oauth(plat, port)
+                    return self._json({"ok": True, "url": url, "msg": f"open the {plat} login window"})
+                if m := re.fullmatch(r"/api/socials/(youtube|tiktok|instagram)/disconnect", p):
+                    socials.disconnect(m.group(1))
+                    return self._json({"ok": True, "msg": f"{m.group(1)} disconnected"})
+                if m := re.fullmatch(r"/api/clips/([\w.@-]+/[\w.-]+)/upload", p):
+                    d = (out / m.group(1)).resolve()
+                    if not d.is_relative_to(out) or not (d / "meta.json").exists():
+                        return self._json({"ok": False, "msg": "clip not found"}, 404)
+                    plats = body.get("platforms")
+                    if plats is not None and (not isinstance(plats, list) or any(x not in socials.PLATFORMS for x in plats)):
+                        raise ValueError("platforms must be youtube / tiktok / instagram")
+                    results = socials.upload_clip(app.cfg, d, plats, force=True)
+                    ok = [k for k, v in results.items() if v.get("ok")]
+                    bad = [f"{k}: {v.get('error')}" for k, v in results.items() if not v.get("ok")]
+                    msg = ("uploaded to " + ", ".join(ok)) if ok else "upload failed"
+                    if bad:
+                        msg += (" · " if ok else "") + "; ".join(bad)
+                    return self._json({"ok": bool(ok), "msg": msg, "uploads": results}, 200 if ok else 502)
                 if p == "/api/streamers":
                     platform = body.get("platform", "twitch")
                     name = str(body.get("name", "")).strip()

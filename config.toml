@@ -30,7 +30,7 @@ loudnorm = true
 # "auto" = Groq Whisper API if GROQ_API_KEY is set, else local faster-whisper (free, offline)
 backend = "auto"
 groq_model = "whisper-large-v3-turbo"
-local_model = "small"         # tiny | base | small | medium | large-v3
+local_model = "base"          # tiny | base | small | medium | large-v3  (fallback if Groq is off)
 language = ""                 # "" = auto-detect, or "en"
 
 [llm]
@@ -62,6 +62,14 @@ chat_spike = [28, 8]
 audio_spike = [18, 10]
 ai_moment = [30, 4]
 manual = [35, 5]
+
+[socials]
+# Connect YouTube / TikTok / Instagram in Settings → Socials (OAuth on localhost).
+# App client id/secret go in .env; tokens land in state/socials.json.
+auto_upload = true            # push every finished clip to connected accounts
+platforms = ["youtube", "tiktok", "instagram"]
+privacy = "public"            # YouTube: public | unlisted | private
+tiktok_privacy = "private"    # private (SELF_ONLY, works unaudited) | public | friends
 
 # ---- Streamers --------------------------------------------------------------
 # Add as many as you want. platform = "twitch" (name = channel login) or

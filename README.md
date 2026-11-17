@@ -134,6 +134,9 @@ API keys live in `.env` (chmod 600, never committed). AI providers are tried in 
 | `record_mode = "gta_only"` | only record while the category or title is GTA 6; saves bandwidth after launch day |
 | `max_recordings = 6` | cap on parallel recordings (about 3–5 Mbit/s each at 720p60) |
 | `live_check_seconds = 20` | how often the Rust core checks every channel |
+| `socials.auto_upload` | after each clip, push to connected YouTube / TikTok / Instagram accounts |
+
+**Socials:** in **⚙ Settings → Socials**, paste each platform’s app client id/secret (see `.env.example`), click **Connect**, and leave `auto_upload` on. Finished vertical clips post with the AI title, caption and hashtags. You can also hit **Upload now** in the clip editor. OAuth redirect URI is `http://127.0.0.1:8787/api/socials/callback/<platform>`.
 
 **Output:** `clips/<streamer>/<time>_<trigger>/` holds `final_vertical.mp4`, `raw.mp4`, `post.txt` (ready to paste), `meta.json`, `transcript.json` and `thumb.jpg`.
 
